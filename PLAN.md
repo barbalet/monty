@@ -2,7 +2,7 @@
 
 ## Current Ship Status
 
-`monty` currently has the historical 35-battle README roster but no Swift package, app target, scenario catalog, playable scenario data, or test app of its own.
+`monty` now has the historical 35-battle README roster, a root Swift package, a Monty core catalog, a first SwiftUI app shell, and an Alam el Halfa data pack. It does not yet have a live DZW-backed Monty battle session, completed Second El Alamein / Operation Epsom data packs, or a `MontyTest` app.
 
 The included `guderian` submodule is the reference implementation for the desired interface: a SwiftUI campaign list, historical briefing flow, DZW-style playable battle board, progress/debrief persistence, and a `GuderianTest` first-battle autoplay app. The nested `guderian/dzw` submodule is present but not initialized in this checkout, so implementation should begin by syncing that dependency before build work.
 
@@ -11,6 +11,8 @@ Cycle 20 update: cycles 1-20 are complete. The nested `guderian/dzw` submodule i
 Cycle 40 update: cycles 21-40 are complete. `guderian/dzw` now has a new `DerZweiteWeltkriegHistorical` product/target with content-neutral battle, side-selection, launch, board-session, playable-surface, autoplay, and C hook migration contracts. The target is Core-only for now to avoid a dependency cycle with the current Guderian-backed DZW app UI; later cycles should make the concrete SwiftUI host use these contracts. `docs/cycle-40-shared-historical-layer.md` records the implementation. DZW `swift test` passed with 97 XCTest tests, including 8 new historical-contract tests. Guderian `swift test` still passed outside the sandbox with 132 XCTest tests plus 16 Swift Testing tests.
 
 Cycle 60 update: cycles 41-60 are complete. `DerZweiteWeltkriegHistorical` now includes a reusable historical autoplay harness with run state, speed modes, side plans, step logs, phase guard, both-side activity checks, and debrief report records. `DerZweiteWeltkriegGuderian` now depends on the historical target and adapts `GuderianScenario` plus the Tuchola Forest first-battle autoplay contract into shared historical contracts; `GuderianCore` re-exports the historical target and exposes the shared contract from `GuderianTestFirstBattleAutoplayContract`. `docs/cycle-60-shared-autoplay-and-guderian-parity.md` records the implementation. DZW `swift test` passed with 101 XCTest tests. Guderian `swift test` passed with 132 XCTest tests plus 17 Swift Testing tests. `swift build` passed in both packages, and the `Guderian` / `GuderianTest` Xcode schemes both built successfully.
+
+Cycle 80 update: cycles 61-80 are complete. The root `monty` package now builds `MontyCore`, `MontyAppUI`, and the `MontyApp` executable against the shared `DerZweiteWeltkriegHistorical` target from `guderian/dzw`. `MontyBattleCatalog` converts the README roster into 35 typed `HistoricalBattleScenario<MontyBattleID>` rows with two selectable sides each, stable storage/app identity, phase counts, source links, placeholder maps, objectives, and victory bands. `MontyAlamElHalfaDataPack` starts the first demo battle with detailed ridge/minefield/anti-tank map data, force groups, objectives, side AI priorities, and debrief lines. `docs/cycle-80-monty-package-catalog-and-alam-data.md` records the implementation. Root `swift test` passed with 6 XCTest tests and root `swift build` passed.
 
 Recommended demo estimate: 120 cycles.
 
