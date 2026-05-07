@@ -6,6 +6,8 @@
 
 The included `guderian` submodule is the reference implementation for the desired interface: a SwiftUI campaign list, historical briefing flow, DZW-style playable battle board, progress/debrief persistence, and a `GuderianTest` first-battle autoplay app. The nested `guderian/dzw` submodule is present but not initialized in this checkout, so implementation should begin by syncing that dependency before build work.
 
+Cycle 20 update: cycles 1-20 are complete. The nested `guderian/dzw` submodule is initialized, the DZW and Guderian package baselines were verified, the three demo battles are locked to Alam el Halfa, Second El Alamein, and Operation Epsom, and `docs/cycle-20-demo-contracts.md` records the shared historical-scenario contracts, side-selection engine binding, shared board-session shape, and generic C hook migration path. DZW `swift test` passed with 89 XCTest tests. Guderian `swift test` initially hit a sandboxed app-signing failure, then passed outside the sandbox with 132 XCTest tests plus 16 Swift Testing tests.
+
 Recommended demo estimate: 120 cycles.
 
 That estimate assumes we do the useful reuse work instead of cloning Guderian UI code into Monty. A direct copy-and-rebrand demo might fit into roughly 80-90 cycles, but it would leave `guderian`, `monty`, and future games with duplicate battle screens, duplicate autoplay logic, and duplicate campaign plumbing. The recommended 120-cycle plan includes 35 cycles for extracting reusable code into `derZweiteWeltkrieg` and rewriting `guderian` to prove the shared interface still works.
