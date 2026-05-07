@@ -1,0 +1,3 @@
+[submodule "guderian"]
+	path = guderian
+	url = git@github.com:barbalet/guderian.git
