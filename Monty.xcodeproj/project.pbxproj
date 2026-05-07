@@ -8,12 +8,14 @@
 
 /* Begin PBXBuildFile section */
 		B10000000000000000000011 /* MontyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* MontyApp.swift */; };
+		B10000000000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000025 /* Assets.xcassets */; };
 		B10000000000000000000014 /* MontyCore in Frameworks */ = {isa = PBXBuildFile; productRef = B10000000000000000000071 /* MontyCore */; };
 		B10000000000000000000015 /* MontyAppUI in Frameworks */ = {isa = PBXBuildFile; productRef = B10000000000000000000072 /* MontyAppUI */; };
 		B20000000000000000000011 /* MontyCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000021 /* MontyCatalogTests.swift */; };
 		B20000000000000000000012 /* MontyCore in Frameworks */ = {isa = PBXBuildFile; productRef = B10000000000000000000071 /* MontyCore */; };
 		B30000000000000000000011 /* MontyTestApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000021 /* MontyTestApp.swift */; };
 		B30000000000000000000012 /* MontyCore in Frameworks */ = {isa = PBXBuildFile; productRef = B10000000000000000000071 /* MontyCore */; };
+		B30000000000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000025 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -21,6 +23,7 @@
 		B10000000000000000000022 /* MontyCampaignView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/MontyApp/MontyCampaignView.swift; sourceTree = SOURCE_ROOT; };
 		B10000000000000000000023 /* MontyAppPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/MontyApp/MontyAppPalette.swift; sourceTree = SOURCE_ROOT; };
 		B10000000000000000000024 /* Monty.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Monty.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000025 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000021 /* MontyCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tests/MontyTests/MontyCatalogTests.swift; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000024 /* MontyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MontyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B30000000000000000000021 /* MontyTestApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/MontyTest/MontyTestApp.swift; sourceTree = SOURCE_ROOT; };
@@ -63,6 +66,7 @@
 				B10000000000000000000043 /* App UI Sources */,
 				B30000000000000000000042 /* MontyTest Sources */,
 				B20000000000000000000042 /* Tests */,
+				B10000000000000000000045 /* Resources */,
 				B10000000000000000000044 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -92,6 +96,14 @@
 				B20000000000000000000024 /* MontyTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B10000000000000000000045 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000025 /* Assets.xcassets */,
+			);
+			name = Resources;
 			sourceTree = "<group>";
 		};
 		B20000000000000000000042 /* Tests */ = {
@@ -223,6 +235,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B10000000000000000000013 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -237,6 +250,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B30000000000000000000013 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -388,6 +402,7 @@
 		B10000000000000000000084 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -395,6 +410,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Monty;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Public domain portrait source documented in Resources/AppIconSource.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -409,6 +425,7 @@
 		B10000000000000000000085 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -416,6 +433,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Monty;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Public domain portrait source documented in Resources/AppIconSource.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -466,6 +484,7 @@
 		B30000000000000000000084 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -473,6 +492,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = MontyTest;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Public domain portrait source documented in Resources/AppIconSource.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -487,6 +507,7 @@
 		B30000000000000000000085 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -494,6 +515,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = MontyTest;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Public domain portrait source documented in Resources/AppIconSource.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
