@@ -79,12 +79,18 @@ private struct MontyCampaignRow: View {
 
 private struct MontyBattleDetailView: View {
     let scenario: MontyBattleScenario
+    @State private var chosenSideID = MontySideID.montgomery
+    @State private var launchFlow: MontyLaunchFlow?
+    @State private var completionRecord: MontyBattleCompletionRecord?
+    @State private var progress = MontyCampaignProgress()
+    @State private var launchError: String?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header
                 sideSelector
+                launchSurface
                 objectives
                 mapPreview
                 sources
@@ -121,14 +127,90 @@ private struct MontyBattleDetailView: View {
             HStack(alignment: .top, spacing: 12) {
                 ForEach(scenario.sideOptions) { side in
                     Button {
+                        prepareLaunch(sideID: side.id)
                     } label: {
                         Label(side.title, systemImage: side.role == .protagonist ? "person.crop.circle" : "shield.lefthalf.filled")
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
+                    .tint(chosenSideID == side.id ? MontyAppPalette.olive : MontyAppPalette.navy)
+                    .disabled(MontyDemoDataPackCatalog.dataPack(for: scenario.id) == nil)
                     .accessibilityIdentifier("monty-side-\(side.id)")
                     .help(side.playerBriefing)
                 }
+            }
+
+            if MontyDemoDataPackCatalog.dataPack(for: scenario.id) == nil {
+                Text(scenario.status.rawValue)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("monty-launch-unavailable-\(scenario.id.rawValue)")
+            }
+
+            if let launchError {
+                Text(launchError)
+                    .font(.caption)
+                    .foregroundStyle(MontyAppPalette.accent)
+                    .accessibilityIdentifier("monty-launch-error-\(scenario.id.rawValue)")
+            }
+        }
+    }
+
+    private var launchSurface: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(MontyAppIdentity.sharedBattleSurfaceName)
+                .font(.title3.weight(.semibold))
+
+            if let launchFlow {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Label(launchFlow.selectedSide?.title ?? chosenSideID, systemImage: "flag")
+                            .foregroundStyle(MontyAppPalette.ink)
+
+                        Spacer()
+
+                        Text(launchFlow.launch.humanBinding?.enginePlayerSlot.rawValue ?? "")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text(launchFlow.opposingSide?.title ?? "")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        completePreview()
+                    } label: {
+                        Label("Resolve Debrief", systemImage: "checkmark.seal")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(MontyAppPalette.olive)
+                    .accessibilityIdentifier("monty-resolve-debrief-\(scenario.id.rawValue)")
+                }
+                .padding(12)
+                .background(.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
+                .accessibilityIdentifier("monty-shared-battle-surface-\(scenario.id.rawValue)")
+            } else {
+                Text(scenario.status == .dataLocked ? "Ready" : "Catalog ready")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("monty-shared-battle-pending-\(scenario.id.rawValue)")
+            }
+
+            if let completionRecord {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(completionRecord.victoryBandLabel)
+                        .font(.headline)
+                    Text(completionRecord.debriefSummary)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Text("\(completionRecord.score) VP | Turn \(completionRecord.completedTurn)")
+                        .font(.caption)
+                        .foregroundStyle(MontyAppPalette.navy)
+                }
+                .padding(12)
+                .background(MontyAppPalette.desert.opacity(0.25), in: RoundedRectangle(cornerRadius: 6))
+                .accessibilityIdentifier("monty-debrief-panel-\(scenario.id.rawValue)")
             }
         }
     }
@@ -191,6 +273,33 @@ private struct MontyBattleDetailView: View {
                     .foregroundStyle(MontyAppPalette.navy)
             }
         }
+    }
+
+    private func prepareLaunch(sideID: String) {
+        chosenSideID = sideID
+        completionRecord = nil
+        do {
+            launchFlow = try MontyLaunchFlowResolver.makeLaunchFlow(
+                battleID: scenario.id,
+                chosenSideID: sideID
+            )
+            progress.recordSelectedSide(sideID, for: scenario.id)
+            launchError = nil
+        } catch {
+            launchFlow = nil
+            launchError = "\(error)"
+        }
+    }
+
+    private func completePreview() {
+        guard let launchFlow else {
+            return
+        }
+        completionRecord = MontyLaunchFlowResolver.complete(
+            launchFlow,
+            progress: &progress,
+            winningSideID: chosenSideID
+        )
     }
 }
 

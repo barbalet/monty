@@ -34,7 +34,7 @@ final class MontyCatalogTests: XCTestCase {
         }
     }
 
-    func testDemoBattleScopeIsLockedAndAlamElHalfaDataPackIsReadyThroughCycle80() throws {
+    func testDemoBattleScopeIsLockedAndAllDemoDataPacksAreReadyThroughCycle100() throws {
         XCTAssertEqual(
             MontyBattleCatalog.demoBattleIDs,
             [.alamElHalfa, .secondElAlamein, .operationEpsom]
@@ -45,12 +45,17 @@ final class MontyCatalogTests: XCTestCase {
         let epsom = try XCTUnwrap(MontyBattleCatalog.scenario(id: .operationEpsom))
 
         XCTAssertEqual(alam.status, .dataLocked)
-        XCTAssertEqual(secondAlamein.status, .catalogReady)
-        XCTAssertEqual(epsom.status, .catalogReady)
+        XCTAssertEqual(secondAlamein.status, .dataLocked)
+        XCTAssertEqual(epsom.status, .dataLocked)
         XCTAssertTrue(MontyAlamElHalfaDataPack.dataPack.isCycle80Ready)
+        XCTAssertTrue(MontySecondElAlameinDataPack.dataPack.isDemoReady)
+        XCTAssertTrue(MontyOperationEpsomDataPack.dataPack.isDemoReady)
+        XCTAssertTrue(MontyDemoDataPackCatalog.cycle100Ready)
         XCTAssertEqual(alam.map.elements.count, 6)
         XCTAssertEqual(alam.objectives.count, 4)
         XCTAssertEqual(Set(alam.objectives.compactMap(\.sideID)), [MontySideID.montgomery, MontySideID.opposition])
+        XCTAssertEqual(secondAlamein.map.elements.count, 6)
+        XCTAssertEqual(epsom.map.elements.count, 6)
     }
 
     func testAlamElHalfaSideSelectionAllowsEitherSideToBeHumanControlled() throws {
@@ -83,6 +88,69 @@ final class MontyCatalogTests: XCTestCase {
         XCTAssertTrue(config.sidePlans[0].movementPriorityNames.contains("Hold Alam el Halfa ridge"))
         XCTAssertTrue(config.sidePlans[1].movementPriorityNames.contains("Break onto the ridge"))
         XCTAssertGreaterThanOrEqual(config.maxPhaseAdvances, 24)
+    }
+
+    func testAllDemoDataPacksExposeBattleSpecificAutoplayPriorities() throws {
+        let packs = MontyDemoDataPackCatalog.all
+
+        XCTAssertEqual(packs.map(\.scenario.id), MontyBattleCatalog.demoBattleIDs)
+
+        for pack in packs {
+            XCTAssertTrue(pack.isDemoReady, pack.scenario.title)
+            XCTAssertEqual(pack.autoplayConfiguration.battleID, pack.scenario.id)
+            XCTAssertEqual(pack.autoplayConfiguration.contract.embeddedBattleSurfaceName, HistoricalPlayableSurfaceCatalog.sharedHostSurfaceName)
+            XCTAssertEqual(Set(pack.autoplayConfiguration.sidePlans.map(\.sideID)), [MontySideID.montgomery, MontySideID.opposition], pack.scenario.title)
+            XCTAssertFalse(pack.autoplayConfiguration.sidePlans.flatMap(\.movementPriorityNames).isEmpty, pack.scenario.title)
+            XCTAssertEqual(Set(pack.forceGroups.map(\.sideID)), [MontySideID.montgomery, MontySideID.opposition], pack.scenario.title)
+            XCTAssertGreaterThanOrEqual(pack.debriefLines.count, 3, pack.scenario.title)
+        }
+
+        let secondAlamein = try XCTUnwrap(MontyDemoDataPackCatalog.dataPack(for: .secondElAlamein))
+        let epsom = try XCTUnwrap(MontyDemoDataPackCatalog.dataPack(for: .operationEpsom))
+
+        XCTAssertTrue(secondAlamein.scenario.map.elements.contains { $0.kind == .minefield && $0.name.contains("Devil") })
+        XCTAssertTrue(secondAlamein.scenario.objectives.contains { $0.name == "Open the armoured route" })
+        XCTAssertTrue(epsom.scenario.map.elements.contains { $0.kind == .river && $0.name.contains("Odon") })
+        XCTAssertTrue(epsom.scenario.objectives.contains { $0.name == "Pressure Hill 112" })
+    }
+
+    func testLaunchFlowRoutesEveryDemoBattleFromSideSelectionToDebriefPersistence() throws {
+        for battleID in MontyBattleCatalog.demoBattleIDs {
+            for sideID in [MontySideID.montgomery, MontySideID.opposition] {
+                var progress = MontyCampaignProgress()
+                let flow = try MontyLaunchFlowResolver.makeLaunchFlow(
+                    battleID: battleID,
+                    chosenSideID: sideID
+                )
+                let record = MontyLaunchFlowResolver.complete(
+                    flow,
+                    progress: &progress,
+                    winningSideID: sideID
+                )
+
+                XCTAssertEqual(flow.scenario.id, battleID)
+                XCTAssertEqual(flow.chosenSideID, sideID)
+                XCTAssertEqual(flow.launch.humanBinding?.sideID, sideID)
+                XCTAssertEqual(flow.stages, MontyLaunchFlowStage.allCases)
+                XCTAssertTrue(flow.isReadyForSharedBattleSurface, flow.scenario.title)
+                XCTAssertTrue(flow.requiredAccessibilityIdentifiers.contains("monty-shared-battle-surface-\(battleID.rawValue)"))
+                XCTAssertEqual(record.battleID, battleID)
+                XCTAssertEqual(record.chosenSideID, sideID)
+                XCTAssertEqual(progress.completionRecord(for: battleID), record)
+                XCTAssertEqual(progress.lastSelectedSideByBattle[battleID], sideID)
+            }
+        }
+    }
+
+    func testLaunchFlowRejectsNonDemoBattlesUntilTheyHaveDataPacks() {
+        XCTAssertThrowsError(
+            try MontyLaunchFlowResolver.makeLaunchFlow(
+                battleID: .battleOfFrance,
+                chosenSideID: MontySideID.montgomery
+            )
+        ) { error in
+            XCTAssertEqual(error as? MontyLaunchFlowError, .missingDemoDataPack(.battleOfFrance))
+        }
     }
 
     func testMontyAppIdentityUsesStableStorageKeysAndSharedSurfaceName() {

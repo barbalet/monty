@@ -35,20 +35,7 @@ public enum MontyBattleCatalog {
             sourceURL: "https://en.wikipedia.org/wiki/Battle_of_Dunkirk"
         ),
         MontyAlamElHalfaDataPack.scenario,
-        make(
-            .secondElAlamein,
-            order: 4,
-            date: "23 Oct-4 Nov 1942",
-            title: "Second Battle of El Alamein",
-            phase: .northAfricaTunisia,
-            command: "Eighth Army",
-            montgomeryForce: "British Empire, Commonwealth, Free French, Greek, and supporting Allied forces",
-            oppositionForce: "German and Italian Panzer Army Africa",
-            result: "Allied victory",
-            intent: "Clear minefields, open armoured corridors, and prevent Axis reserves from keeping withdrawal roads coherent.",
-            sourceTitle: "Second Battle of El Alamein",
-            sourceURL: "https://en.wikipedia.org/wiki/Second_Battle_of_El_Alamein"
-        ),
+        MontySecondElAlameinDataPack.scenario,
         make(
             .elAgheila,
             order: 5,
@@ -246,20 +233,7 @@ public enum MontyBattleCatalog {
             sourceTitle: "Battle of Villers-Bocage",
             sourceURL: "https://en.wikipedia.org/wiki/Battle_of_Villers-Bocage"
         ),
-        make(
-            .operationEpsom,
-            order: 19,
-            date: "26-30 Jun 1944",
-            title: "Operation Epsom",
-            phase: .normandyFrance,
-            command: "21st Army Group, British Second Army",
-            montgomeryForce: "British VIII Corps and 15th Scottish Division spearhead",
-            oppositionForce: "German Seventh Army and II SS Panzer Corps counterattacks",
-            result: "Allied partial success",
-            intent: "Widen an Odon bridgehead toward Hill 112 while German forces contain the salient and counterattack its shoulders.",
-            sourceTitle: "Operation Epsom",
-            sourceURL: "https://en.wikipedia.org/wiki/Operation_Epsom"
-        ),
+        MontyOperationEpsomDataPack.scenario,
         make(
             .operationCharnwood,
             order: 20,

@@ -46,15 +46,18 @@ public struct MontyDemoBattleDataPack: Codable, Hashable, Sendable {
         self.debriefLines = debriefLines
     }
 
-    public var isCycle80Ready: Bool {
-        scenario.id == .alamElHalfa &&
-            scenario.status == .dataLocked &&
+    public var isDemoReady: Bool {
+        scenario.status == .dataLocked &&
             scenario.hasTwoPlayableSides &&
             scenario.map.elements.count >= 6 &&
             scenario.objectives.count >= 4 &&
             forceGroups.count >= 4 &&
             autoplayConfiguration.sidePlans.count == 2 &&
             debriefLines.count >= 3
+    }
+
+    public var isCycle80Ready: Bool {
+        scenario.id == .alamElHalfa && isDemoReady
     }
 }
 
