@@ -1,138 +1,124 @@
-# Monty Demo Development Plan
+# Monty 180-Cycle Playable Demo Plan
 
-## Current Ship Status
+## Current Reality Check
 
-`monty` now has the historical 35-battle README roster, a root Swift package, a Monty core catalog, a first SwiftUI app shell, data packs for the three demo battles, a core launch flow from side selection to shared-surface/debrief/persistence state, a deterministic DZW historical-harness board session, bidirectional autoplay for both selectable sides, and a `MontyTest` app.
+`monty` has useful foundations: a 35-battle catalog, three demo battle data packs, side selection, launch-flow records, a deterministic `HistoricalBoardSession`, autoplay, and root tests that pass.
 
-The included `guderian` submodule is the reference implementation for the desired interface: a SwiftUI campaign list, historical briefing flow, DZW-style playable battle board, progress/debrief persistence, and a `GuderianTest` first-battle autoplay app. The nested `guderian/dzw` submodule is initialized and supplies the shared `DerZweiteWeltkriegHistorical` contracts used by Monty.
+It does not yet have the Guderian-style playable interface in the Monty app. The visible Monty route is still a campaign/detail page with a `Run to Debrief` button. The name `HistoricalPlayableBattleView` exists as a contract string, not as a public SwiftUI battle surface that Monty can instantiate. The current acceptance tests prove model/autoplay contracts, but they do not prove that a human can play a battle through the actual interface.
 
-Cycle 20 update: cycles 1-20 are complete. The nested `guderian/dzw` submodule is initialized, the DZW and Guderian package baselines were verified, the three demo battles are locked to Alam el Halfa, Second El Alamein, and Operation Epsom, and `docs/cycle-20-demo-contracts.md` records the shared historical-scenario contracts, side-selection engine binding, shared board-session shape, and generic C hook migration path. DZW `swift test` passed with 89 XCTest tests. Guderian `swift test` initially hit a sandboxed app-signing failure, then passed outside the sandbox with 132 XCTest tests plus 16 Swift Testing tests.
+The reference implementation remains `guderian`: campaign briefing, playable board, unit selection, movement, combat controls, phase flow, AI turn, debrief, and progress persistence. The work below turns that reference into a real shared historical battle interface and wires Monty into it.
 
-Cycle 40 update: cycles 21-40 are complete. `guderian/dzw` now has a new `DerZweiteWeltkriegHistorical` product/target with content-neutral battle, side-selection, launch, board-session, playable-surface, autoplay, and C hook migration contracts. The target is Core-only for now to avoid a dependency cycle with the current Guderian-backed DZW app UI; later cycles should make the concrete SwiftUI host use these contracts. `docs/cycle-40-shared-historical-layer.md` records the implementation. DZW `swift test` passed with 97 XCTest tests, including 8 new historical-contract tests. Guderian `swift test` still passed outside the sandbox with 132 XCTest tests plus 16 Swift Testing tests.
+## Turnaround Estimate
 
-Cycle 60 update: cycles 41-60 are complete. `DerZweiteWeltkriegHistorical` now includes a reusable historical autoplay harness with run state, speed modes, side plans, step logs, phase guard, both-side activity checks, and debrief report records. `DerZweiteWeltkriegGuderian` now depends on the historical target and adapts `GuderianScenario` plus the Tuchola Forest first-battle autoplay contract into shared historical contracts; `GuderianCore` re-exports the historical target and exposes the shared contract from `GuderianTestFirstBattleAutoplayContract`. `docs/cycle-60-shared-autoplay-and-guderian-parity.md` records the implementation. DZW `swift test` passed with 101 XCTest tests. Guderian `swift test` passed with 132 XCTest tests plus 17 Swift Testing tests. `swift build` passed in both packages, and the `Guderian` / `GuderianTest` Xcode schemes both built successfully.
+Recommended turnaround: **180 cycles**.
 
-Cycle 80 update: cycles 61-80 are complete. The root `monty` package now builds `MontyCore`, `MontyAppUI`, and the `MontyApp` executable against the shared `DerZweiteWeltkriegHistorical` target from `guderian/dzw`. `MontyBattleCatalog` converts the README roster into 35 typed `HistoricalBattleScenario<MontyBattleID>` rows with two selectable sides each, stable storage/app identity, phase counts, source links, placeholder maps, objectives, and victory bands. `MontyAlamElHalfaDataPack` starts the first demo battle with detailed ridge/minefield/anti-tank map data, force groups, objectives, side AI priorities, and debrief lines. `docs/cycle-80-monty-package-catalog-and-alam-data.md` records the implementation. Root `swift test` passed with 6 XCTest tests and root `swift build` passed.
+This implements all three scopes that were discussed:
 
-Cycle 100 update: cycles 81-100 are complete. `MontySecondElAlameinDataPack` and `MontyOperationEpsomDataPack` now complete the three demo battle data set with data-locked scenarios, battle-specific map elements, deployment zones, objectives, force groups, side AI priorities, and debrief lines. `MontyDemoDataPackCatalog` exposes all demo packs and a cycle-100 readiness gate. `MontyLaunchFlow`, `MontyLaunchFlowResolver`, `MontyCampaignProgress`, and `MontyBattleCompletionRecord` add the first core route from campaign detail and side selection into a shared battle-surface/debrief/persistence state; the SwiftUI shell now uses that route for demo battles. `docs/cycle-100-demo-data-and-launch-flow.md` records the implementation. Root `swift test` passed with 9 XCTest tests and root `swift build` passed.
+- **Cycles 1-30:** recover literal playability so the demo is no longer a static/detail-page experience.
+- **Cycles 31-90:** implement the proper Guderian-style shared interface instead of a Monty-only patch.
+- **Cycles 91-180:** harden, polish, test, and package the demo so it cannot pass acceptance without being genuinely playable.
 
-Cycle 120 update: cycles 101-120 are complete. `MontyDemoBoardSession` now adapts each demo data pack to the shared `HistoricalBoardSession` contract with legal movement, shooting, assault, pending-choice, phase-advance, mission, map-zone, objective, unit, log, and debrief snapshots. `MontyDemoAutoplayRunner` drives all three demo battles from either selectable side through the DZW historical autoplay controller, persists the resulting Monty completion record, and exposes a cycle-120 acceptance report. The root package now builds a `MontyTest` executable with an Alam el Halfa autoplay surface, run/step/pause/restart/speed/safety-cap/log/result controls, and stable MontyTest accessibility identifiers. `docs/cycle-120-demo-acceptance.md` records the implementation. Root `swift test` passed with 13 XCTest tests and root `swift build` passed.
-
-Recommended demo estimate: 120 cycles.
-
-That estimate assumes we do the useful reuse work instead of cloning Guderian UI code into Monty. A direct copy-and-rebrand demo might fit into roughly 80-90 cycles, but it would leave `guderian`, `monty`, and future games with duplicate battle screens, duplicate autoplay logic, and duplicate campaign plumbing. The recommended 120-cycle plan includes 35 cycles for extracting reusable code into `derZweiteWeltkrieg` and rewriting `guderian` to prove the shared interface still works.
+The 180-cycle estimate is intentionally larger than the minimum fix. It includes the emergency playable surface, the real shared-interface extraction, Guderian parity protection, Monty-specific polish, UI automation, screenshot/manual acceptance, and documentation cleanup.
 
 ## Demo Goal
 
-The first accepted demo should ship a native macOS Monty app using the same playable interface as `guderian`:
+The accepted Monty demo ships a native macOS app with the same practical playability level as `guderian`:
 
-- A Monty-branded campaign list populated from the README chronology.
-- Historical briefing screens for the demo battles.
-- A side selector before launch: play Montgomery's command or the opposing army.
-- The real DZW-style board surface with selectable units, movement, combat, objectives, phase controls, action feedback, AI turns, debrief, and progress persistence.
-- A `MontyTest` app similar to `GuderianTest`, launching directly into the first demo battle and autoplaying to a real debrief.
+- A Monty-branded 35-battle campaign list with three playable demo battles.
+- Historical briefing and side selection before launch.
+- A real DZW/Guderian-style battle interface with a board, units, terrain, objectives, phase controls, action feedback, AI turn controls, log, debrief, and persisted progress.
+- Play from either side for Alam el Halfa, Second El Alamein, and Operation Epsom.
+- A `MontyTest` app that launches directly into Alam el Halfa and can autoplay to a real debrief through the same playable surface.
+- Regression tests and UI/screenshot checks that fail if the app falls back to contract-only playability.
 
-Recommended first demo battles:
+## Scope Boundaries
 
-- [Battle of Alam el Halfa](https://en.wikipedia.org/wiki/Battle_of_Alam_el_Halfa) as the tutorial/defensive battle.
-- [Second Battle of El Alamein](https://en.wikipedia.org/wiki/Second_Battle_of_El_Alamein) as the signature breakthrough battle.
-- [Operation Epsom](https://en.wikipedia.org/wiki/Operation_Epsom) as the Normandy bridgehead/counterattack battle.
+Move only content-neutral interface/runtime code into shared DZW or historical targets. Keep Montgomery and Guderian campaign content separate.
 
-Operation Epsom is a better demo third battle than Market Garden because it proves the north-west Europe rules and German counterattack pressure without making the first demo depend on the full airborne corridor problem.
+Shared code should include:
 
-## Reuse And Refactor Recommendation
+- `HistoricalPlayableBattleView`, not just the string name.
+- Generic board rendering, viewport, terrain, objective, and unit token views.
+- Generic battle view model over `HistoricalBoardSession`.
+- Generic controls for select, move, rotate, shoot, assault, resolve pending choice, next phase, AI turn, restart, and run to debrief.
+- Generic debrief, event log, action feedback, and persistence hooks.
+- UI accessibility identifiers used by both Guderian and Monty.
 
-Move only content-agnostic code from `guderian` down into `derZweiteWeltkrieg`. Keep all Guderian-specific and Montgomery-specific history, catalogs, copy, battle IDs, AI priorities, source links, and app branding outside the shared engine.
+Game-specific code should include:
 
-Code that is worth moving or generalizing:
-
-- The DZW-style playable SwiftUI battle surface currently embodied by `DZWPlayableBattleView`.
-- The board/session protocol used by the view model: snapshot, select, move, rotate, shoot, assault, pending choice, phase advance, restart, AI turn, and completion hooks.
-- Generic battlefield map rendering and viewport components.
-- Generic campaign row, briefing, completion, save/load, debrief, and accessibility contracts.
-- Generic first-battle autoplay controller shape currently proven by `GuderianTestFirstBattleRunController`.
-- C engine hooks that are currently guarded for Guderian scenario boards, renamed or wrapped as a generic historical-scenario board API.
-
-Code that should stay game-specific:
-
-- `GuderianCampaignCatalog`, `UnifiedGuderianBattleCatalog`, late-career Guderian context, and Guderian AI naming.
-- The future Monty battle catalog, side-selection policy, Montgomery/opposing force text, and Monty AI priorities.
-- App identity: app names, icons, colors where they are historically or brand specific, storage keys, and tutorial copy.
-
-The desired end state is:
-
-- `dzw` owns reusable engine, board, scenario-session, campaign-UI, and autoplay contracts.
-- `guderian` becomes a thin game module that supplies Guderian content adapters to those contracts.
-- `monty` becomes a thin game module that supplies Montgomery content adapters to those contracts.
+- Monty/Guderian catalogs, battle IDs, side labels, historical copy, AI priority names, palette choices, app identity, and storage keys.
+- Any scenario-specific balance or historical data pack content.
 
 ## Cycle Range Summary
 
-- Cycles 1-10: repository bootstrap and dependency lock.
-- Cycles 11-25: shared architecture and side-selection contract.
-- Cycles 26-45: move reusable playable battle UI/runtime into `dzw`.
-- Cycles 46-60: rewrite `guderian` onto the shared interface and prove parity.
-- Cycles 61-75: create the Monty package, app targets, and 35-battle catalog shell.
-- Cycles 76-95: author the three demo battle data packs.
-- Cycles 96-105: implement playable side selection and opposing AI for both directions.
-- Cycles 106-115: create `MontyTest` first-battle autoplay.
-- Cycles 116-120: acceptance hardening, documentation, and demo readiness.
+- **Cycles 1-30:** playable recovery and false-positive test prevention.
+- **Cycles 31-60:** shared historical battle UI architecture and board model.
+- **Cycles 61-90:** Guderian-style interaction parity and Monty integration.
+- **Cycles 91-120:** three-battle gameplay completeness and MontyTest parity.
+- **Cycles 121-150:** UI polish, accessibility, visual QA, and automation.
+- **Cycles 151-180:** release hardening, docs, packaging, and final acceptance.
 
-## Cycles 1-120: Playable Demo
+## Cycles 1-180
 
 | Cycles | Focus | Output |
 | --- | --- | --- |
-| 1-5 | Repository and submodule bootstrap | Initialize/sync `guderian/dzw`, confirm SwiftPM and Xcode build baselines, record exact reusable targets and source files. |
-| 6-10 | Demo scope lock | Freeze the three demo battles, side-select policy, minimum acceptance gates, app naming, storage-key prefix, and README-to-catalog ID mapping. |
-| 11-15 | Shared scenario contracts | Define content-neutral battle ID, side option, force role, source link, map, objective, victory band, debrief, progress, and save contracts. |
-| 16-20 | Side-selection architecture | Add a generic "player side vs AI side" model so a battle can run either Montgomery-side human vs opposing AI or opposing human vs Montgomery-side AI. |
-| 21-25 | Refactor design review | Identify which Guderian types become adapters, which view models become generic, and which C symbols need generic historical-scenario names. |
-| 26-35 | Shared playable battle surface | Move/generalize `DZWPlayableBattleView`, battlefield viewport, map rendering, board action feedback, debrief panel, and accessibility identifiers into `dzw` shared UI/runtime targets. |
-| 36-40 | Shared board/session runtime | Move/generalize the board-session protocol, completion resolver bridge, AI turn hook points, restart flow, and deterministic seed handling. |
-| 41-45 | Shared autoplay harness | Move/generalize first-battle autoplay run state, speed modes, step logs, phase guard, final-result summary, and real debrief persistence. |
-| 46-55 | Guderian adapter rewrite | Rewrite `guderian` to supply Guderian scenarios, Guderian side labels, Guderian AI plans, and Guderian persistence through the shared `dzw` contracts. |
-| 56-60 | Guderian parity gate | Run `swift test`, `swift build`, and the Xcode `Guderian` / `GuderianTest` build schemes; fix regressions before starting Monty app work. |
-| 61-65 | Monty package scaffold | Add root `Package.swift`, `Sources/MontyCore`, `Sources/MontyApp`, `Sources/MontyAppHost`, `Tests/MontyTests`, and shared `dzw` dependency wiring. |
-| 66-70 | Monty app identity | Add Monty app shell, campaign view entry point, storage keys, initial palette, Xcode project/schemes if the repo follows the Guderian Xcode pattern. |
-| 71-75 | 35-battle catalog shell | Convert README chronology into typed battle IDs, chronology rows, side options, source links, command notes, and placeholder readiness states. |
-| 76-82 | Alam el Halfa data pack | Author first demo map, forces, deployment zones, ridge/minefield/anti-tank objectives, AI priorities for both sides, scoring, and debrief. |
-| 83-89 | Second El Alamein data pack | Author minefield corridors, infantry assault lanes, armoured exploitation zones, Axis reserve/counterattack logic, scoring, and debrief. |
-| 90-95 | Operation Epsom data pack | Author Odon crossings, Hill 112 objectives, British bridgehead expansion, German counterattack priorities, scoring, and debrief. |
-| 96-100 | Playable launch flow | Wire campaign row -> briefing -> side selector -> shared DZW battle screen -> debrief -> progress persistence for all three demo battles. |
-| 101-105 | Bidirectional AI pass | Ensure both sides can be AI-controlled, both sides can be player-controlled through side selection, and autoplay uses legal board actions in either direction. |
-| 106-110 | MontyTest app | Add `MontyTest` single-window app that embeds the shared battle surface for Alam el Halfa with run, pause, step, speed, log, safety-cap, and result controls. |
-| 111-115 | MontyTest acceptance | Make `MontyTest` autoplay to a real debrief, prove both sides acted, persist the result, and add regression tests for the first-battle autoplay contract. |
-| 116-120 | Demo acceptance | Final pass for documentation, screenshots if needed, build/test commands, README/PLAN updates, and a zero-blocker demo readiness report. |
-
-## MontyTest Requirements
-
-`MontyTest` should be planned as a first-class app, not a throwaway diagnostics panel.
-
-Acceptance requirements:
-
-- Launch directly into Alam el Halfa.
-- Embed the same shared DZW playable battle view used by the real Monty app.
-- Show controls for run to debrief, step once, pause/resume, restart, speed, phase safety cap, event log, and final result summary.
-- Autoplay legal board actions for the current player side and then hand the turn to the opposing AI.
-- Support deterministic seed replay.
-- Record a real debrief and Monty progress completion.
-- Expose stable accessibility identifiers equivalent to the GuderianTest contract, renamed for Monty.
+| 1-5 | Reality reset | Replace the old 120-cycle completion claim with explicit current-state notes; identify every contract-only acceptance check that can pass without a playable UI. |
+| 6-10 | Failing playability gates | Add tests or diagnostics that require an actual Monty battle surface route, board identifiers, action controls, and debrief panel rather than just `HistoricalPlayableSurfaceCatalog` strings. |
+| 11-15 | Emergency board shell | Add a temporary Monty playable battle view backed by `MontyDemoBoardSession`, with board, units, zones, objectives, selected unit/target state, and action feedback. |
+| 16-20 | Emergency controls | Wire select, move, shoot, assault, resolve pending choice, next phase, restart, and run-to-debrief into the temporary playable surface. |
+| 21-25 | App launch path | Replace the detail-page `Run to Debrief` flow with campaign row -> briefing -> side selector -> playable board -> debrief for all three demo battles. |
+| 26-30 | Minimum playability acceptance | Prove all three battles can be manually advanced from either side; preserve current autoplay tests; document remaining gaps before the shared extraction starts. |
+| 31-35 | Shared target design | Decide whether the real shared SwiftUI surface lives in `DerZweiteWeltkriegHistorical`, a new DZW UI target, or a local transitional target; update package dependencies accordingly. |
+| 36-40 | Generic battle view model | Build a content-neutral view model over `HistoricalBoardSession` snapshots, selected units, legal actions, completion, AI steps, and persistence callbacks. |
+| 41-45 | Shared board rendering | Extract or recreate Guderian-style battlefield viewport, grid, terrain, objectives, and unit tokens using `HistoricalBoardSnapshot` types. |
+| 46-50 | Shared command panels | Build reusable controls, inspector, objectives, forces, log, and action-feedback panels with public SwiftUI entry points. |
+| 51-55 | Shared debrief flow | Add generic debrief display, completion callback, persisted-result identifier, and restart/return-to-campaign behavior. |
+| 56-60 | Shared API stabilization | Publish `HistoricalPlayableBattleView` as a real type; make tests fail if Monty cannot instantiate it. |
+| 61-65 | Guderian parity mapping | Map the important Guderian interface affordances onto the shared view: board viewport, toolbar, sidebar/panel behavior, phase flow, AI turn, action feedback, and debrief. |
+| 66-70 | Monty integration | Replace the emergency Monty board with the real shared `HistoricalPlayableBattleView`. Keep Monty-only content in adapters. |
+| 71-75 | Bidirectional human play | Verify both Montgomery and opposing-force player selections produce correct active side labels, AI labels, scores, and control handoff. |
+| 76-80 | AI turn controls | Add visible and testable AI step/run controls for the opposing side, with safety caps and logs that match Guderian expectations. |
+| 81-85 | Guderian regression pass | Build and test Guderian after shared-interface changes; fix parity regressions before adding more Monty polish. |
+| 86-90 | Shared-interface acceptance | Require both Guderian and Monty to use the shared surface with no Monty-only clone of the final board UI. |
+| 91-96 | Alam el Halfa gameplay pass | Tune map layout, unit placement, objective control, AI priorities, scoring, debrief text, and blocked-action messaging for the first demo battle. |
+| 97-102 | Second El Alamein gameplay pass | Tune minefields, corridors, infantry assault flow, armoured breakthrough objectives, Axis reserves, scoring, and debrief. |
+| 103-108 | Operation Epsom gameplay pass | Tune Odon crossings, bridgehead expansion, Hill 112 pressure, German counterattack behavior, scoring, and debrief. |
+| 109-114 | Cross-battle consistency | Normalize labels, phase counts, turn bounds, objective scoring, and visual scale across the three demo battles. |
+| 115-120 | MontyTest parity | Make `MontyTest` embed the same shared battle surface, not a separate diagnostics board, while preserving run, pause, step, speed, restart, log, safety cap, and result summary. |
+| 121-126 | Visual design pass | Apply Monty palette and typography while retaining the Guderian interface structure; remove static preview-only UI from the playable path. |
+| 127-132 | Accessibility pass | Stabilize identifiers for campaign, side selector, board, unit tokens, controls, objectives, log, AI turn, debrief, persisted result, and MontyTest controls. |
+| 133-138 | Screenshot QA | Add or run repeatable screenshot checks for campaign, briefing, side selection, board at desktop size, board at smaller window size, debrief, and MontyTest. |
+| 139-144 | UI automation | Add UI tests or scripted checks that select a side, choose a unit, move, shoot, advance phase, run AI turn, and reach debrief. |
+| 145-150 | Interaction polish | Fix text overlap, cramped panels, board scaling, selection visibility, disabled states, blocked-action clarity, and control discoverability. |
+| 151-156 | Build matrix | Run root `swift test`, root `swift build`, DZW tests/builds, Guderian tests/builds, and Xcode scheme builds where available. |
+| 157-162 | Save/load hardening | Verify selected side, completion records, debrief summaries, and campaign progress persist and reload without corrupting Guderian storage. |
+| 163-168 | Documentation cleanup | Update `README.md`, `PLAN.md`, and cycle docs so they describe actual playable behavior, not intended contracts. |
+| 169-174 | Final demo rehearsal | Perform a human-facing demo pass through all three battles from both sides, plus MontyTest autoplay, recording blockers and fixing them. |
+| 175-180 | Acceptance closeout | Produce a final readiness report with commands run, UI evidence, known limitations, and explicit confirmation that the old contract-only acceptance gap is closed. |
 
 ## Acceptance Gates
 
-The 120-cycle demo is accepted when:
+The 180-cycle demo is accepted only when all of these are true:
 
-- `guderian` still builds and tests after the shared-code extraction.
-- The shared DZW battle surface is used by both Guderian and Monty, with no cloned Monty-only copy of the playable board UI.
-- Monty has 35 catalog rows from the README chronology, with the three demo battles marked playable and the others marked planned.
-- Each playable demo battle can be launched from the campaign list, played from either side, run through AI turns, and completed to debrief.
-- `MontyTest` launches Alam el Halfa directly and autoplays to a debrief through the real shared battle surface.
-- SwiftPM tests cover catalog integrity, side selection, demo scenario loading, shared battle-surface routing, debrief persistence, and MontyTest autoplay.
-- Xcode schemes exist and build for `Monty`, `MontyTest`, and the rewritten `Guderian` / `GuderianTest` apps if Xcode project support is kept.
+- Monty launches a real playable battle board from the campaign flow for each demo battle.
+- `HistoricalPlayableBattleView` is a real public SwiftUI surface, not only a contract string.
+- The playable surface supports unit selection, movement, shooting, assault, pending-choice resolution, phase advance, AI turn, restart, debrief, and progress persistence.
+- Monty can play Alam el Halfa, Second El Alamein, and Operation Epsom from either selectable side.
+- `MontyTest` embeds the same shared playable battle surface and autoplays Alam el Halfa to a real debrief.
+- Guderian still builds and keeps its playable interface after shared extraction.
+- Tests include at least one guard that would fail if Monty regressed to the current detail-page `Run to Debrief` shortcut.
+- Visual/UI checks confirm the board is visible, usable, and not overlapped or blank at target desktop window sizes.
 
-## Risks And Notes
+## Non-Goals For This Demo
 
-- The largest new gameplay risk is bidirectional play. `guderian` assumes a fixed player role in many places; Monty needs side selection and AI naming to be data-driven.
-- The largest engineering risk is moving too much into `dzw`. Shared code should be generic contracts and UI/runtime plumbing only, not campaign-specific history.
-- The nested `dzw` submodule is initialized in the current checkout; future engine-level work should still verify current target names and C hook shapes before editing because both submodules can advance independently.
-- If upstreaming to `derZweiteWeltkrieg` is deferred, the same extraction can temporarily live as a local shared package target, but that should be treated as a fallback because it weakens reuse for future games.
-- A full 35-battle Monty campaign should be planned separately after the demo. With the shared layer in place, a full campaign expansion is likely another 150-220 cycles depending on how detailed each battle board becomes.
+- A fully authored 35-battle Monty campaign.
+- Perfect historical simulation for every future Montgomery battle.
+- A rewrite of the DZW core combat engine beyond what the shared playable surface needs.
+- Rebranding Guderian code by copy-paste without a shared interface.
+
+## Risks
+
+- The largest product risk is accepting autoplay as a substitute for human playability. The new gates must make that impossible.
+- The largest engineering risk is extracting too much Guderian-specific behavior into shared code. Shared code must stay content-neutral.
+- The largest schedule risk is UI automation on macOS/Xcode. The plan reserves cycles for screenshot and manual demo rehearsal so acceptance is not blocked on one testing method.
+- The current `MontyDemoBoardSession` is useful but simplified. If it feels too fake once placed behind the real interface, gameplay tuning must happen inside the 91-120 cycle band.
