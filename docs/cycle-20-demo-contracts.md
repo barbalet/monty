@@ -46,14 +46,13 @@ The remaining 32 README battles should appear in the Monty catalog as planned/no
 
 ## Shared Target Recommendation
 
-Add a content-neutral DZW target before Monty app work begins:
+Add a content-neutral DZW target before Monty app work begins. Cycle 40 implemented this as a Core-only target first so the later Guderian adapter rewrite can depend on it without creating an AppUI/Guderian/Historical dependency cycle:
 
 ```swift
 .target(
     name: "DerZweiteWeltkriegHistorical",
     dependencies: [
         "DerZweiteWeltkriegCore",
-        "DerZweiteWeltkriegAppUI",
     ],
     path: "Sources/DerZweiteWeltkriegHistorical"
 )
@@ -61,7 +60,7 @@ Add a content-neutral DZW target before Monty app work begins:
 
 This target should own reusable historical-campaign contracts and battle runtime adapters. `DerZweiteWeltkriegGuderian` and the future `MontyCore` should depend on it.
 
-If adding a new target is too disruptive, the fallback is to place the contracts in `DerZweiteWeltkriegAppUI`, but that makes content modules depend on app UI. The new target is cleaner.
+If adding a new target is too disruptive, the fallback is to place the contracts in `DerZweiteWeltkriegAppUI`, but that makes content modules depend on app UI. The new target is cleaner, and a later UI extraction can invert the current DZW app UI dependency direction.
 
 ## Generic Historical Contracts
 
