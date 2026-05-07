@@ -19,6 +19,10 @@ let package = Package(
             name: "MontyApp",
             targets: ["MontyApp"]
         ),
+        .executable(
+            name: "MontyTest",
+            targets: ["MontyTest"]
+        ),
     ],
     dependencies: [
         .package(path: "guderian/dzw"),
@@ -44,6 +48,15 @@ let package = Package(
             name: "MontyApp",
             dependencies: ["MontyAppUI"],
             path: "Sources/MontyAppHost",
+            linkerSettings: [
+                .linkedFramework("SwiftUI"),
+                .linkedFramework("AppKit"),
+            ]
+        ),
+        .executableTarget(
+            name: "MontyTest",
+            dependencies: ["MontyCore"],
+            path: "Sources/MontyTest",
             linkerSettings: [
                 .linkedFramework("SwiftUI"),
                 .linkedFramework("AppKit"),

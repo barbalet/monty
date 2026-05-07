@@ -181,7 +181,7 @@ private struct MontyBattleDetailView: View {
                     Button {
                         completePreview()
                     } label: {
-                        Label("Resolve Debrief", systemImage: "checkmark.seal")
+                        Label("Run to Debrief", systemImage: "checkmark.seal")
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(MontyAppPalette.olive)
@@ -295,11 +295,17 @@ private struct MontyBattleDetailView: View {
         guard let launchFlow else {
             return
         }
-        completionRecord = MontyLaunchFlowResolver.complete(
-            launchFlow,
-            progress: &progress,
-            winningSideID: chosenSideID
-        )
+        do {
+            let result = try MontyDemoAutoplayRunner.runBattle(
+                battleID: launchFlow.scenario.id,
+                chosenSideID: chosenSideID
+            )
+            progress = result.progress
+            completionRecord = result.completionRecord
+            launchError = nil
+        } catch {
+            launchError = "\(error)"
+        }
     }
 }
 

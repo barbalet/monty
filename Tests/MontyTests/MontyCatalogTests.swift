@@ -142,6 +142,87 @@ final class MontyCatalogTests: XCTestCase {
         }
     }
 
+    func testDemoBoardSessionExposesLegalActionsForEveryDemoBattleAndSide() throws {
+        for battleID in MontyBattleCatalog.demoBattleIDs {
+            for sideID in [MontySideID.montgomery, MontySideID.opposition] {
+                let session = try MontyDemoBoardSession(
+                    battleID: battleID,
+                    chosenSideID: sideID
+                )
+                let opening = session.snapshot()
+
+                XCTAssertEqual(opening.battleID, battleID)
+                XCTAssertEqual(opening.activeSideID, sideID)
+                XCTAssertEqual(opening.phase, .movement)
+                XCTAssertGreaterThanOrEqual(opening.units.count, 4, opening.mission.name)
+                XCTAssertGreaterThanOrEqual(opening.zones.count, 6, opening.mission.name)
+                XCTAssertGreaterThanOrEqual(opening.objectives.count, 4, opening.mission.name)
+                XCTAssertTrue(opening.units.contains { $0.sideID == sideID && $0.canMoveNow }, opening.mission.name)
+
+                session.selectFirstActiveUnit()
+                session.selectNearestEnemyToSelectedUnit()
+                XCTAssertTrue(session.moveSelectedUnitTowardNearestObjective(maxDistance: 3), opening.mission.name)
+                session.advancePhase()
+                XCTAssertEqual(session.snapshot().phase, .shooting)
+                session.selectFirstActiveUnit()
+                session.selectNearestEnemyToSelectedUnit()
+                XCTAssertTrue(session.shootSelectedTarget(), opening.mission.name)
+                XCTAssertTrue(session.resolveFirstPendingChoice(), opening.mission.name)
+            }
+        }
+    }
+
+    func testHistoricalAutoplayRunsEveryDemoBattleFromEitherSideToDebrief() throws {
+        let results = try MontyDemoAutoplayRunner.runAllDemoBattlesForBothSides()
+
+        XCTAssertEqual(results.count, MontyBattleCatalog.demoBattleIDs.count * 2)
+        XCTAssertEqual(Set(results.map(\.flow.scenario.id)), Set(MontyBattleCatalog.demoBattleIDs))
+        XCTAssertEqual(Set(results.map(\.flow.chosenSideID)), [MontySideID.montgomery, MontySideID.opposition])
+
+        for result in results {
+            XCTAssertTrue(result.report.completedToDebrief, result.report.finalResultSummary)
+            XCTAssertTrue(result.report.bothSidesActed, result.report.finalResultSummary)
+            XCTAssertEqual(result.report.surfaceName, result.flow.autoplayConfiguration.contract.primarySurfaceName)
+            XCTAssertEqual(result.report.embeddedBattleSurfaceName, HistoricalPlayableSurfaceCatalog.sharedHostSurfaceName)
+            XCTAssertEqual(result.completionRecord.battleID, result.flow.scenario.id)
+            XCTAssertEqual(result.completionRecord.chosenSideID, result.flow.chosenSideID)
+            XCTAssertEqual(result.progress.completionRecord(for: result.flow.scenario.id), result.completionRecord)
+            XCTAssertEqual(result.progress.lastSelectedSideByBattle[result.flow.scenario.id], result.flow.chosenSideID)
+        }
+    }
+
+    func testMontyTestFirstBattleControllerAutoplaysAlamElHalfaToDebrief() throws {
+        let controller = try MontyTestFirstBattleRunController()
+
+        XCTAssertEqual(controller.flow.scenario.id, .alamElHalfa)
+        XCTAssertEqual(controller.openingSnapshot.activeSideID, MontySideID.montgomery)
+        XCTAssertEqual(controller.runState, .ready)
+
+        let firstStep = try XCTUnwrap(controller.stepOnce())
+        XCTAssertEqual(firstStep.battleID, .alamElHalfa)
+        XCTAssertEqual(controller.runState, .paused)
+        XCTAssertGreaterThan(controller.steps.count, 0)
+
+        let result = try controller.runToDebrief()
+        XCTAssertEqual(controller.runState, .completed)
+        XCTAssertTrue(result.report.completedToDebrief)
+        XCTAssertTrue(result.report.bothSidesActed)
+        XCTAssertEqual(result.completionRecord.battleID, .alamElHalfa)
+        XCTAssertEqual(controller.progress.completionRecord(for: .alamElHalfa), result.completionRecord)
+    }
+
+    func testCycle120DemoAcceptanceReportIsReady() throws {
+        let report = try MontyDemoAcceptanceCatalog.report()
+
+        XCTAssertTrue(report.isReady)
+        XCTAssertEqual(report.cycleStart, 101)
+        XCTAssertEqual(report.cycleEnd, 120)
+        XCTAssertEqual(report.runCount, 6)
+        XCTAssertEqual(report.completedRunCount, report.runCount)
+        XCTAssertEqual(report.bothSidesActedRunCount, report.runCount)
+        XCTAssertEqual(report.testedSideIDs, [MontySideID.montgomery, MontySideID.opposition])
+    }
+
     func testLaunchFlowRejectsNonDemoBattlesUntilTheyHaveDataPacks() {
         XCTAssertThrowsError(
             try MontyLaunchFlowResolver.makeLaunchFlow(

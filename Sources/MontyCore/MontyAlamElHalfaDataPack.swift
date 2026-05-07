@@ -293,6 +293,7 @@ public enum MontyAlamElHalfaDataPack {
                 "monty-test-run-to-debrief-button",
                 "monty-test-step-button",
                 "monty-test-pause-button",
+                "monty-test-restart-button",
                 "monty-test-speed-picker",
                 "monty-test-safety-cap",
                 "monty-test-event-log",
