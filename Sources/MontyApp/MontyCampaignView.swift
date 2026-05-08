@@ -127,27 +127,16 @@ private struct MontyBattleDetailView: View {
 
     private var sideSelector: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Side Selection")
-                .font(.title3.weight(.semibold))
+            HistoricalBattleSidePicker(
+                scenario: scenario,
+                selectedSideID: sideSelectionBinding,
+                title: "Side Selection",
+                accessibilityIdentifier: MontyAccessibilityID.battleSideSelector,
+                optionAccessibilityIDPrefix: "monty-side",
+                isEnabled: hasPlayableDataPack
+            )
 
-            HStack(alignment: .top, spacing: 12) {
-                ForEach(scenario.sideOptions) { side in
-                    Button {
-                        prepareLaunch(sideID: side.id)
-                    } label: {
-                        Label(side.title, systemImage: side.role == .protagonist ? "person.crop.circle" : "shield.lefthalf.filled")
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(chosenSideID == side.id ? MontyAppPalette.olive : MontyAppPalette.navy)
-                    .disabled(MontyDemoDataPackCatalog.dataPack(for: scenario.id) == nil)
-                    .accessibilityIdentifier(MontyAccessibilityID.side(side.id))
-                    .help(side.playerBriefing)
-                }
-            }
-            .accessibilityIdentifier(MontyAccessibilityID.battleSideSelector)
-
-            if MontyDemoDataPackCatalog.dataPack(for: scenario.id) == nil {
+            if !hasPlayableDataPack {
                 Text(scenario.status.rawValue)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -161,6 +150,17 @@ private struct MontyBattleDetailView: View {
                     .accessibilityIdentifier(MontyAccessibilityID.launchError(scenario.id))
             }
         }
+    }
+
+    private var sideSelectionBinding: Binding<String> {
+        Binding(
+            get: { chosenSideID },
+            set: { prepareLaunch(sideID: $0) }
+        )
+    }
+
+    private var hasPlayableDataPack: Bool {
+        MontyDemoDataPackCatalog.dataPack(for: scenario.id) != nil
     }
 
     private var launchSurface: some View {

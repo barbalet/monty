@@ -1,4 +1,5 @@
 @testable import MontyCore
+import SwiftUI
 import XCTest
 
 final class MontyCatalogTests: XCTestCase {
@@ -75,6 +76,22 @@ final class MontyCatalogTests: XCTestCase {
         XCTAssertEqual(montgomeryLaunch.aiBinding?.sideID, MontySideID.opposition)
         XCTAssertEqual(axisLaunch.humanBinding?.sideID, MontySideID.opposition)
         XCTAssertEqual(axisLaunch.aiBinding?.sideID, MontySideID.montgomery)
+    }
+
+    @MainActor
+    func testMontyBattleSelectionCanUseSharedSidePickerDropdown() throws {
+        let scenario = try XCTUnwrap(MontyBattleCatalog.scenario(id: .alamElHalfa))
+        let picker = HistoricalBattleSidePicker(
+            scenario: scenario,
+            selectedSideID: .constant(MontySideID.montgomery),
+            accessibilityIdentifier: MontyAccessibilityID.battleSideSelector,
+            optionAccessibilityIDPrefix: "monty-side"
+        )
+
+        XCTAssertEqual(HistoricalBattleSidePickerDefaults.accessibilityIdentifier, MontyAccessibilityID.battleSideSelector)
+        XCTAssertEqual(scenario.sideOptions.map(\.id), [MontySideID.montgomery, MontySideID.opposition])
+        XCTAssertEqual(MontyAccessibilityID.side(MontySideID.montgomery), "monty-side-\(MontySideID.montgomery)")
+        XCTAssertTrue(String(describing: type(of: picker)).contains("HistoricalBattleSidePicker"))
     }
 
     func testAlamElHalfaAutoplayContractAndAIPlansUseSharedHistoricalHarnessShape() {
