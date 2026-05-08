@@ -39,9 +39,7 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
         launch = flow.launch
         dataPack = flow.dataPack
 
-        let opponentSideID = flow.launch.sideBindings
-            .map(\.sideID)
-            .first { $0 != flow.launch.chosenHumanSideID } ?? MontySideID.opposition
+        let opponentSideID = flow.launch.aiSideID ?? MontySideID.opposition
         sideOrder = [flow.launch.chosenHumanSideID, opponentSideID]
         activeSideID = flow.launch.chosenHumanSideID
 
@@ -337,7 +335,7 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
     }
 
     private var opposingSideID: String {
-        sideOrder.first { $0 != launch.chosenHumanSideID } ?? MontySideID.opposition
+        launch.aiSideID ?? sideOrder.first { $0 != launch.chosenHumanSideID } ?? MontySideID.opposition
     }
 
     private func score(for sideID: String) -> Int {

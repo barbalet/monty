@@ -114,11 +114,15 @@ public struct MontyLaunchFlow: Codable, Hashable, Sendable {
     }
 
     public var selectedSide: HistoricalSideOption? {
-        scenario.sideOptions.first { $0.id == chosenSideID }
+        resolvedSideSelection.selectedSide
     }
 
     public var opposingSide: HistoricalSideOption? {
-        scenario.sideOptions.first { $0.id != chosenSideID }
+        resolvedSideSelection.opposingSide
+    }
+
+    public var resolvedSideSelection: HistoricalBattleSideSelection<MontyBattleID> {
+        scenario.resolvedSideSelection(for: launch)
     }
 
     public var sharedBattleSurfaceName: String {
@@ -126,9 +130,9 @@ public struct MontyLaunchFlow: Codable, Hashable, Sendable {
     }
 
     public var isReadyForSharedBattleSurface: Bool {
-        dataPack.isDemoReady &&
+            dataPack.isDemoReady &&
             stages == MontyLaunchFlowStage.allCases &&
-            launch.humanBinding?.sideID == chosenSideID &&
+            launch.humanSideID == chosenSideID &&
             autoplayConfiguration.battleID == scenario.id &&
             autoplayConfiguration.contract.embeddedBattleSurfaceName == sharedBattleSurfaceName
     }
