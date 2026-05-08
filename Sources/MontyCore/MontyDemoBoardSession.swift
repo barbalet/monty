@@ -117,6 +117,9 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
         }
 
         selectedUnitID = id
+        if selectedTargetID == id {
+            selectedTargetID = nil
+        }
         recordAction(status: .succeeded, title: "Select unit", detail: "\(unitStates[id]?.name ?? "Unit") selected.")
     }
 
@@ -128,6 +131,12 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
 
         selectedTargetID = id
         recordAction(status: .succeeded, title: "Select target", detail: "\(unitStates[id]?.name ?? "Target") targeted.")
+    }
+
+    public func clearSelection() {
+        selectedUnitID = nil
+        selectedTargetID = nil
+        recordAction(status: .idle, title: "Selection cleared", detail: "No unit or target selected.")
     }
 
     public func selectFirstActiveUnit() {

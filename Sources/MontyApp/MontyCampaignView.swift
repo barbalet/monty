@@ -13,14 +13,15 @@ public struct MontyCampaignView: View {
                     NavigationLink(value: scenario.id) {
                         MontyCampaignRow(scenario: scenario)
                     }
-                    .accessibilityIdentifier("monty-campaign-row-\(scenario.id.rawValue)")
+                    .accessibilityIdentifier(MontyAccessibilityID.campaignRow(scenario.id))
                 }
             }
             .navigationTitle(MontyAppIdentity.appName)
-            .accessibilityIdentifier("monty-campaign-list")
+            .accessibilityIdentifier(MontyAccessibilityID.campaignList)
         } detail: {
             if let scenario = selectedScenario {
                 MontyBattleDetailView(scenario: scenario)
+                    .id(scenario.id)
             } else {
                 Text("Select a battle")
                     .foregroundStyle(.secondary)
@@ -79,8 +80,12 @@ private struct MontyCampaignRow: View {
 
 private struct MontyBattleDetailView: View {
     let scenario: MontyBattleScenario
+    @AppStorage(MontyAppIdentity.campaignProgressStorageKey) private var encodedProgress = ""
+    @AppStorage(MontyAppIdentity.selectedSideStorageKey) private var lastSelectedSideID = MontySideID.montgomery
     @State private var chosenSideID = MontySideID.montgomery
     @State private var launchFlow: MontyLaunchFlow?
+    @State private var battleSession: MontyDemoBoardSession?
+    @State private var battleSnapshot: HistoricalBoardSnapshot<MontyBattleID>?
     @State private var completionRecord: MontyBattleCompletionRecord?
     @State private var progress = MontyCampaignProgress()
     @State private var launchError: String?
@@ -99,7 +104,8 @@ private struct MontyBattleDetailView: View {
             .frame(maxWidth: 980, alignment: .leading)
         }
         .background(MontyAppPalette.paper)
-        .accessibilityIdentifier("monty-battle-detail-\(scenario.id.rawValue)")
+        .accessibilityIdentifier(MontyAccessibilityID.battleDetail(scenario.id))
+        .onAppear(perform: loadProgress)
     }
 
     private var header: some View {
@@ -135,23 +141,24 @@ private struct MontyBattleDetailView: View {
                     .buttonStyle(.bordered)
                     .tint(chosenSideID == side.id ? MontyAppPalette.olive : MontyAppPalette.navy)
                     .disabled(MontyDemoDataPackCatalog.dataPack(for: scenario.id) == nil)
-                    .accessibilityIdentifier("monty-side-\(side.id)")
+                    .accessibilityIdentifier(MontyAccessibilityID.side(side.id))
                     .help(side.playerBriefing)
                 }
             }
+            .accessibilityIdentifier(MontyAccessibilityID.battleSideSelector)
 
             if MontyDemoDataPackCatalog.dataPack(for: scenario.id) == nil {
                 Text(scenario.status.rawValue)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("monty-launch-unavailable-\(scenario.id.rawValue)")
+                    .accessibilityIdentifier(MontyAccessibilityID.launchUnavailable(scenario.id))
             }
 
             if let launchError {
                 Text(launchError)
                     .font(.caption)
                     .foregroundStyle(MontyAppPalette.accent)
-                    .accessibilityIdentifier("monty-launch-error-\(scenario.id.rawValue)")
+                    .accessibilityIdentifier(MontyAccessibilityID.launchError(scenario.id))
             }
         }
     }
@@ -161,40 +168,32 @@ private struct MontyBattleDetailView: View {
             Text(MontyAppIdentity.sharedBattleSurfaceName)
                 .font(.title3.weight(.semibold))
 
-            if let launchFlow {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Label(launchFlow.selectedSide?.title ?? chosenSideID, systemImage: "flag")
-                            .foregroundStyle(MontyAppPalette.ink)
-
-                        Spacer()
-
-                        Text(launchFlow.launch.humanBinding?.enginePlayerSlot.rawValue ?? "")
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Text(launchFlow.opposingSide?.title ?? "")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-
-                    Button {
-                        completePreview()
-                    } label: {
-                        Label("Run to Debrief", systemImage: "checkmark.seal")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(MontyAppPalette.olive)
-                    .accessibilityIdentifier("monty-resolve-debrief-\(scenario.id.rawValue)")
-                }
-                .padding(12)
-                .background(.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
-                .accessibilityIdentifier("monty-shared-battle-surface-\(scenario.id.rawValue)")
+            if let launchFlow, let battleSnapshot {
+                MontyPlayableBattleSurfaceView(
+                    scenario: scenario,
+                    launchFlow: launchFlow,
+                    snapshot: battleSnapshot,
+                    completionRecord: completionRecord,
+                    onSelectReadyUnit: selectReadyUnit,
+                    onSelectNearestEnemy: selectNearestEnemy,
+                    onSelectUnit: selectBoardUnit,
+                    onSelectTarget: targetBoardUnit,
+                    onClearSelection: clearBoardSelection,
+                    onMove: moveSelectedUnit,
+                    onShoot: shootSelectedTarget,
+                    onAssault: assaultSelectedTarget,
+                    onResolvePending: resolvePendingChoice,
+                    onNextPhase: advancePhase,
+                    onAITurn: runAutomatedPhase,
+                    onRestart: restartBattle,
+                    onRunToDebrief: completePreview
+                )
+                .accessibilityIdentifier(MontyAccessibilityID.sharedBattleSurface(scenario.id))
             } else {
                 Text(scenario.status == .dataLocked ? "Ready" : "Catalog ready")
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("monty-shared-battle-pending-\(scenario.id.rawValue)")
+                    .accessibilityIdentifier(MontyAccessibilityID.sharedBattlePending(scenario.id))
             }
 
             if let completionRecord {
@@ -207,10 +206,11 @@ private struct MontyBattleDetailView: View {
                     Text("\(completionRecord.score) VP | Turn \(completionRecord.completedTurn)")
                         .font(.caption)
                         .foregroundStyle(MontyAppPalette.navy)
+                        .accessibilityIdentifier(MontyAccessibilityID.persistedResult(scenario.id))
                 }
                 .padding(12)
                 .background(MontyAppPalette.desert.opacity(0.25), in: RoundedRectangle(cornerRadius: 6))
-                .accessibilityIdentifier("monty-debrief-panel-\(scenario.id.rawValue)")
+                .accessibilityIdentifier(MontyAccessibilityID.debriefPanel(scenario.id))
             }
         }
     }
@@ -258,7 +258,7 @@ private struct MontyBattleDetailView: View {
                 }
             }
             .frame(height: 240)
-            .accessibilityIdentifier("monty-map-preview-\(scenario.id.rawValue)")
+            .accessibilityIdentifier(MontyAccessibilityID.mapPreview(scenario.id))
         }
     }
 
@@ -277,16 +277,24 @@ private struct MontyBattleDetailView: View {
 
     private func prepareLaunch(sideID: String) {
         chosenSideID = sideID
+        lastSelectedSideID = sideID
         completionRecord = nil
         do {
-            launchFlow = try MontyLaunchFlowResolver.makeLaunchFlow(
+            let flow = try MontyLaunchFlowResolver.makeLaunchFlow(
                 battleID: scenario.id,
                 chosenSideID: sideID
             )
+            let session = MontyDemoBoardSession(flow: flow)
+            launchFlow = flow
+            battleSession = session
+            battleSnapshot = session.snapshot()
             progress.recordSelectedSide(sideID, for: scenario.id)
+            persistProgress()
             launchError = nil
         } catch {
             launchFlow = nil
+            battleSession = nil
+            battleSnapshot = nil
             launchError = "\(error)"
         }
     }
@@ -302,10 +310,657 @@ private struct MontyBattleDetailView: View {
             )
             progress = result.progress
             completionRecord = result.completionRecord
+            battleSnapshot = result.report.finalSnapshot
+            persistProgress()
             launchError = nil
         } catch {
             launchError = "\(error)"
         }
+    }
+
+    private func restartBattle() {
+        guard let launchFlow else {
+            return
+        }
+
+        let session = MontyDemoBoardSession(flow: launchFlow)
+        battleSession = session
+        battleSnapshot = session.snapshot()
+        completionRecord = nil
+        launchError = nil
+        progress.recordSelectedSide(chosenSideID, for: scenario.id)
+        persistProgress()
+    }
+
+    private func selectReadyUnit() {
+        battleSession?.selectFirstActiveUnit()
+        refreshSnapshot()
+    }
+
+    private func selectNearestEnemy() {
+        battleSession?.selectNearestEnemyToSelectedUnit()
+        refreshSnapshot()
+    }
+
+    private func selectBoardUnit(_ id: Int) {
+        battleSession?.selectUnit(id)
+        refreshSnapshot()
+    }
+
+    private func targetBoardUnit(_ id: Int) {
+        battleSession?.selectTarget(id)
+        refreshSnapshot()
+    }
+
+    private func clearBoardSelection() {
+        battleSession?.clearSelection()
+        refreshSnapshot()
+    }
+
+    private func moveSelectedUnit() {
+        _ = battleSession?.moveSelectedUnitTowardNearestObjective(maxDistance: 5)
+        refreshSnapshot()
+    }
+
+    private func shootSelectedTarget() {
+        _ = battleSession?.shootSelectedTarget()
+        refreshSnapshot()
+    }
+
+    private func assaultSelectedTarget() {
+        guard let session = battleSession,
+              let attacker = session.snapshot().units.first(where: { $0.selected }),
+              let target = session.snapshot().units.first(where: { $0.targeted }) else {
+            refreshSnapshot()
+            return
+        }
+
+        _ = session.assaultUnit(attacker.id, targetID: target.id, advance: true)
+        refreshSnapshot()
+    }
+
+    private func resolvePendingChoice() {
+        _ = battleSession?.resolveFirstPendingChoice()
+        refreshSnapshot()
+    }
+
+    private func advancePhase() {
+        battleSession?.advancePhase()
+        refreshSnapshot()
+    }
+
+    private func runAutomatedPhase() {
+        guard let session = battleSession,
+              let launchFlow else {
+            return
+        }
+
+        let snapshot = session.snapshot()
+        let plan = launchFlow.autoplayConfiguration.plan(for: snapshot.activeSideID)
+        let activeUnits = snapshot.units
+            .filter { $0.sideID == snapshot.activeSideID && !$0.destroyed }
+            .sorted { $0.id < $1.id }
+
+        for unit in activeUnits {
+            session.selectUnit(unit.id)
+            session.selectNearestEnemyToSelectedUnit()
+            switch snapshot.phase {
+            case .movement:
+                _ = session.moveSelectedUnitTowardPriorityObjective(
+                    named: plan.movementPriorityNames,
+                    maxDistance: plan.movementDistance
+                ) || session.moveSelectedUnitTowardNearestObjective(maxDistance: plan.movementDistance)
+            case .shooting:
+                _ = session.shootSelectedTarget()
+                _ = session.resolveFirstPendingChoice()
+            case .assault:
+                if let target = session.snapshot().units.first(where: { $0.targeted && !$0.destroyed }) {
+                    _ = session.assaultUnit(unit.id, targetID: target.id, advance: true)
+                    _ = session.resolveFirstPendingChoice()
+                }
+            }
+        }
+
+        session.advancePhase()
+        refreshSnapshot()
+    }
+
+    private func refreshSnapshot() {
+        battleSnapshot = battleSession?.snapshot()
+    }
+
+    private func loadProgress() {
+        chosenSideID = lastSelectedSideID
+        guard !encodedProgress.isEmpty else {
+            return
+        }
+
+        do {
+            progress = try MontyCampaignProgressCodec.decode(encodedProgress)
+            completionRecord = progress.completionRecord(for: scenario.id)
+            chosenSideID = progress.lastSelectedSideByBattle[scenario.id] ?? lastSelectedSideID
+        } catch {
+            launchError = "\(error)"
+        }
+    }
+
+    private func persistProgress() {
+        do {
+            encodedProgress = try MontyCampaignProgressCodec.encode(progress)
+        } catch {
+            launchError = "\(error)"
+        }
+    }
+}
+
+private struct MontyPlayableBattleSurfaceView: View {
+    let scenario: MontyBattleScenario
+    let launchFlow: MontyLaunchFlow
+    let snapshot: HistoricalBoardSnapshot<MontyBattleID>
+    let completionRecord: MontyBattleCompletionRecord?
+    let onSelectReadyUnit: () -> Void
+    let onSelectNearestEnemy: () -> Void
+    let onSelectUnit: (Int) -> Void
+    let onSelectTarget: (Int) -> Void
+    let onClearSelection: () -> Void
+    let onMove: () -> Void
+    let onShoot: () -> Void
+    let onAssault: () -> Void
+    let onResolvePending: () -> Void
+    let onNextPhase: () -> Void
+    let onAITurn: () -> Void
+    let onRestart: () -> Void
+    let onRunToDebrief: () -> Void
+
+    var body: some View {
+        HistoricalPlayableBattleView(
+            battleTitle: scenario.title,
+            selectedSideTitle: launchFlow.selectedSide?.title ?? launchFlow.chosenSideID,
+            opposingSideTitle: launchFlow.opposingSide?.title ?? "",
+            snapshot: snapshot,
+            debrief: completionRecord.map {
+                HistoricalPlayableDebriefSummary(
+                    title: $0.victoryBandLabel,
+                    summary: $0.debriefSummary,
+                    scoreLine: "\($0.score) VP | Turn \($0.completedTurn)"
+                )
+            },
+            onSelectReadyUnit: onSelectReadyUnit,
+            onSelectNearestEnemy: onSelectNearestEnemy,
+            onSelectUnit: onSelectUnit,
+            onSelectTarget: onSelectTarget,
+            onClearSelection: onClearSelection,
+            onMove: onMove,
+            onShoot: onShoot,
+            onAssault: onAssault,
+            onResolvePending: onResolvePending,
+            onNextPhase: onNextPhase,
+            onAITurn: onAITurn,
+            onRestart: onRestart,
+            onRunToDebrief: onRunToDebrief
+        )
+    }
+
+    @ViewBuilder
+    private var battleLayout: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 12) {
+                MontyBattleBoardView(snapshot: snapshot)
+                    .frame(minWidth: 500, minHeight: 320)
+                    .layoutPriority(2)
+
+                sidebar
+                    .frame(width: 280)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                MontyBattleBoardView(snapshot: snapshot)
+                    .frame(minHeight: 300)
+                sidebar
+            }
+        }
+    }
+
+    private var sidebar: some View {
+        MontyBattleSidebarView(
+            scenario: scenario,
+            snapshot: snapshot,
+            completionRecord: completionRecord,
+            selectedUnit: selectedUnit,
+            targetedUnit: targetedUnit
+        )
+    }
+
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 3) {
+                Label(launchFlow.selectedSide?.title ?? launchFlow.chosenSideID, systemImage: "flag.fill")
+                    .font(.headline)
+                    .foregroundStyle(MontyAppPalette.ink)
+                    .lineLimit(1)
+
+                Text("Opposition: \(launchFlow.opposingSide?.title ?? "")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 12)
+
+            Text("Turn \(snapshot.turnNumber) | \(snapshot.activeSideID) | \(snapshot.phase.rawValue)")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(MontyAppPalette.navy, in: RoundedRectangle(cornerRadius: 4))
+        }
+    }
+
+    private var selectedUnit: HistoricalBoardUnitSnapshot? {
+        snapshot.units.first(where: \.selected)
+    }
+
+    private var targetedUnit: HistoricalBoardUnitSnapshot? {
+        snapshot.units.first(where: \.targeted)
+    }
+}
+
+private struct MontyBattleControlsView: View {
+    let selectedUnit: HistoricalBoardUnitSnapshot?
+    let targetedUnit: HistoricalBoardUnitSnapshot?
+    let completionRecord: MontyBattleCompletionRecord?
+    let onSelectReadyUnit: () -> Void
+    let onSelectNearestEnemy: () -> Void
+    let onMove: () -> Void
+    let onShoot: () -> Void
+    let onAssault: () -> Void
+    let onResolvePending: () -> Void
+    let onNextPhase: () -> Void
+    let onAITurn: () -> Void
+    let onRestart: () -> Void
+    let onRunToDebrief: () -> Void
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 118, maximum: 170), spacing: 8),
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+            commandButton(
+                title: "Select",
+                systemImage: "scope",
+                identifier: MontyAccessibilityID.battleSelectReadyUnitButton,
+                action: onSelectReadyUnit
+            )
+
+            commandButton(
+                title: "Target",
+                systemImage: "target",
+                identifier: MontyAccessibilityID.battleNearestEnemyButton,
+                disabled: selectedUnit == nil,
+                action: onSelectNearestEnemy
+            )
+
+            commandButton(
+                title: "Move",
+                systemImage: "arrow.up.right",
+                identifier: MontyAccessibilityID.battleMoveButton,
+                disabled: selectedUnit?.canMoveNow != true,
+                action: onMove
+            )
+
+            commandButton(
+                title: "Shoot",
+                systemImage: "scope",
+                identifier: MontyAccessibilityID.battleShootButton,
+                disabled: selectedUnit?.canShootNow != true || targetedUnit == nil,
+                action: onShoot
+            )
+
+            commandButton(
+                title: "Assault",
+                systemImage: "figure.run",
+                identifier: MontyAccessibilityID.battleAssaultButton,
+                disabled: selectedUnit?.canAssaultNow != true || targetedUnit == nil,
+                action: onAssault
+            )
+
+            commandButton(
+                title: "Resolve",
+                systemImage: "checkmark.circle",
+                identifier: MontyAccessibilityID.battleResolvePendingButton,
+                action: onResolvePending
+            )
+
+            commandButton(
+                title: "Phase",
+                systemImage: "forward.end",
+                identifier: MontyAccessibilityID.battleNextPhaseButton,
+                action: onNextPhase
+            )
+
+            commandButton(
+                title: "AI Phase",
+                systemImage: "cpu",
+                identifier: MontyAccessibilityID.battleAITurnButton,
+                disabled: completionRecord != nil,
+                action: onAITurn
+            )
+
+            commandButton(
+                title: "Restart",
+                systemImage: "arrow.clockwise",
+                identifier: MontyAccessibilityID.battleRestartButton,
+                action: onRestart
+            )
+
+            commandButton(
+                title: "Debrief",
+                systemImage: "checkmark.seal",
+                identifier: MontyAccessibilityID.battleRunToDebriefButton,
+                prominent: true,
+                disabled: completionRecord != nil,
+                action: onRunToDebrief
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func commandButton(
+        title: String,
+        systemImage: String,
+        identifier: String,
+        prominent: Bool = false,
+        disabled: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        if prominent {
+            Button(action: action) {
+                commandLabel(title: title, systemImage: systemImage)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(MontyAppPalette.olive)
+            .disabled(disabled)
+            .accessibilityIdentifier(identifier)
+            .accessibilityHint(helpText(title: title, disabled: disabled))
+            .help(helpText(title: title, disabled: disabled))
+        } else {
+            Button(action: action) {
+                commandLabel(title: title, systemImage: systemImage)
+            }
+            .buttonStyle(.bordered)
+            .tint(MontyAppPalette.navy)
+            .disabled(disabled)
+            .accessibilityIdentifier(identifier)
+            .accessibilityHint(helpText(title: title, disabled: disabled))
+            .help(helpText(title: title, disabled: disabled))
+        }
+    }
+
+    private func commandLabel(title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .frame(maxWidth: .infinity, minHeight: 30)
+    }
+
+    private func helpText(title: String, disabled: Bool) -> String {
+        if disabled {
+            return "\(title) is waiting for a legal unit, phase, target, or unresolved debrief state."
+        }
+        return "\(title) command"
+    }
+}
+
+private struct MontyBattleSidebarView: View {
+    let scenario: MontyBattleScenario
+    let snapshot: HistoricalBoardSnapshot<MontyBattleID>
+    let completionRecord: MontyBattleCompletionRecord?
+    let selectedUnit: HistoricalBoardUnitSnapshot?
+    let targetedUnit: HistoricalBoardUnitSnapshot?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(snapshot.lastAction.title)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(MontyAppPalette.ink)
+                Text(snapshot.lastAction.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(actionColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 6))
+            .accessibilityIdentifier(MontyAccessibilityID.battleActionFeedback)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Inspector")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(selectedUnit?.name ?? "No unit selected")
+                    .font(.callout.weight(.semibold))
+                    .lineLimit(2)
+                Text(targetedUnit.map { "Target: \($0.name)" } ?? "No target")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Objectives")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                ForEach(snapshot.objectives) { objective in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Circle()
+                            .fill(objective.controllingSideID == MontySideID.montgomery ? MontyAppPalette.navy : MontyAppPalette.accent)
+                            .frame(width: 7, height: 7)
+                        Text(objective.name)
+                            .font(.caption)
+                            .lineLimit(2)
+                    }
+                }
+            }
+            .accessibilityIdentifier(MontyAccessibilityID.battleObjectives)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Log")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(snapshot.log.suffix(8).enumerated()), id: \.offset) { _, entry in
+                            Text(entry)
+                                .font(.caption2)
+                                .foregroundStyle(MontyAppPalette.ink)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+                .frame(maxHeight: 110)
+            }
+            .accessibilityIdentifier(MontyAccessibilityID.battleLog)
+
+            if let completionRecord {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(completionRecord.victoryBandLabel)
+                        .font(.headline)
+                    Text(completionRecord.debriefSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("\(completionRecord.score) VP | Turn \(completionRecord.completedTurn)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(MontyAppPalette.navy)
+                        .accessibilityIdentifier(MontyAccessibilityID.battlePersistedResult)
+                }
+                .padding(8)
+                .background(MontyAppPalette.desert.opacity(0.22), in: RoundedRectangle(cornerRadius: 6))
+                .accessibilityIdentifier(MontyAccessibilityID.battleDebriefPanel)
+            }
+        }
+        .padding(10)
+        .background(MontyAppPalette.paper.opacity(0.74), in: RoundedRectangle(cornerRadius: 6))
+        .accessibilityIdentifier(MontyAccessibilityID.battleSidebar)
+    }
+
+    private var actionColor: Color {
+        switch snapshot.lastAction.status {
+        case .idle:
+            return MontyAppPalette.navy
+        case .succeeded:
+            return MontyAppPalette.olive
+        case .blocked:
+            return MontyAppPalette.accent
+        }
+    }
+}
+
+private struct MontyBattleBoardView: View {
+    let snapshot: HistoricalBoardSnapshot<MontyBattleID>
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                Rectangle()
+                    .fill(Color(red: 0.67, green: 0.61, blue: 0.44))
+
+                ForEach(snapshot.zones) { zone in
+                    zoneView(zone, proxy: proxy)
+                }
+
+                ForEach(snapshot.objectives) { objective in
+                    objectiveView(objective, proxy: proxy)
+                }
+
+                ForEach(snapshot.units) { unit in
+                    unitView(unit, proxy: proxy)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(MontyAppPalette.navy.opacity(0.35), lineWidth: 1)
+            )
+        }
+        .aspectRatio(1.55, contentMode: .fit)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(MontyAccessibilityID.battleBoard)
+    }
+
+    private func zoneView(_ zone: HistoricalBoardZoneSnapshot, proxy: GeometryProxy) -> some View {
+        RoundedRectangle(cornerRadius: 5)
+            .fill(zoneColor(zone.kind).opacity(0.44))
+            .frame(
+                width: max(42, scaledWidth(zone.width, proxy: proxy)),
+                height: max(22, scaledHeight(zone.height, proxy: proxy))
+            )
+            .position(position(zone.origin, proxy: proxy))
+            .overlay {
+                Text(zone.name)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.72)
+                    .multilineTextAlignment(.center)
+                    .padding(3)
+            }
+            .accessibilityLabel(zone.name)
+            .accessibilityIdentifier(MontyAccessibilityID.battleZone(zone.id))
+    }
+
+    private func objectiveView(_ objective: HistoricalBoardObjectiveSnapshot, proxy: GeometryProxy) -> some View {
+        ZStack {
+            Circle()
+                .fill(Color.white)
+            Circle()
+                .fill(objective.controllingSideID == MontySideID.montgomery ? MontyAppPalette.navy : MontyAppPalette.accent)
+                .padding(3)
+        }
+        .frame(width: 22, height: 22)
+        .position(position(objective.location, proxy: proxy))
+        .help(objective.name)
+        .accessibilityLabel(objective.name)
+        .accessibilityIdentifier(MontyAccessibilityID.battleObjectiveToken(objective.id))
+    }
+
+    private func unitView(_ unit: HistoricalBoardUnitSnapshot, proxy: GeometryProxy) -> some View {
+        VStack(spacing: 2) {
+            Image(systemName: iconName(for: unit))
+                .font(.caption.weight(.semibold))
+            Text(unit.name)
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.66)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 5)
+        .frame(width: 108, height: 42)
+        .background(unitColor(unit.sideID), in: RoundedRectangle(cornerRadius: 5))
+        .overlay {
+            RoundedRectangle(cornerRadius: 5)
+                .stroke(unit.selected || unit.targeted ? Color.yellow : Color.white.opacity(0.18), lineWidth: unit.selected || unit.targeted ? 2 : 1)
+        }
+        .opacity(unit.destroyed ? 0.42 : 1)
+        .position(position(unit.position, proxy: proxy))
+        .help("\(unit.name), \(unit.role)")
+        .accessibilityLabel("\(unit.name), \(unit.sideID), \(unit.kind)")
+        .accessibilityIdentifier(MontyAccessibilityID.battleUnitToken(unit.id))
+    }
+
+    private func zoneColor(_ kind: HistoricalMapElementKind) -> Color {
+        switch kind {
+        case .ridge, .forest:
+            return Color(red: 0.23, green: 0.42, blue: 0.28)
+        case .minefield:
+            return MontyAppPalette.accent
+        case .road, .bridge, .phaseLine:
+            return MontyAppPalette.navy
+        case .river:
+            return Color(red: 0.18, green: 0.39, blue: 0.52)
+        case .town, .objective:
+            return Color(red: 0.44, green: 0.29, blue: 0.18)
+        default:
+            return Color.gray
+        }
+    }
+
+    private func unitColor(_ sideID: String) -> Color {
+        sideID == MontySideID.montgomery ? MontyAppPalette.navy : MontyAppPalette.accent
+    }
+
+    private func iconName(for unit: HistoricalBoardUnitSnapshot) -> String {
+        switch unit.kind {
+        case "Armour":
+            return "shield.lefthalf.filled"
+        case "Gun":
+            return "scope"
+        case "Command":
+            return "flag.2.crossed.fill"
+        default:
+            return "flag.fill"
+        }
+    }
+
+    private func position(_ point: HistoricalBattleCoordinate, proxy: GeometryProxy) -> CGPoint {
+        CGPoint(
+            x: min(max(18, point.x / 100 * proxy.size.width), proxy.size.width - 18),
+            y: min(max(18, point.y / 64 * proxy.size.height), proxy.size.height - 18)
+        )
+    }
+
+    private func scaledWidth(_ width: Double, proxy: GeometryProxy) -> Double {
+        width / 100 * proxy.size.width
+    }
+
+    private func scaledHeight(_ height: Double, proxy: GeometryProxy) -> Double {
+        height / 64 * proxy.size.height
     }
 }
 
@@ -322,7 +977,7 @@ private struct MontyMapElementMark: View {
             .padding(.vertical, 4)
             .background(color, in: RoundedRectangle(cornerRadius: 4))
             .position(x: point.x * 8.4, y: point.y * 4.2)
-            .accessibilityIdentifier("monty-map-element-\(element.id)")
+            .accessibilityIdentifier(MontyAccessibilityID.mapElement(element.id))
     }
 
     private var color: Color {

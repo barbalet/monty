@@ -10,6 +10,16 @@ With the use of the `derZweiteWeltkrieg` engine:
 
 https://github.com/barbalet/derZweiteWeltkrieg
 
+## Current Playable Demo Status
+
+The current demo has three playable battles: Alam el Halfa, Second El Alamein, and Operation Epsom. Each can be launched from the Monty campaign flow, played from either selectable side, advanced through movement, shooting, assault, pending-choice resolution, phase flow, AI phase, restart, and debrief, and saved through Monty-owned progress storage.
+
+The shared battle host is now a concrete `HistoricalPlayableBattleView` in the historical DZW layer, backed by `HistoricalBoardSnapshot` data. Monty and `MontyTest` both instantiate that surface instead of relying only on the old contract string.
+
+The post-240 repair pass replaces dense board text with numbered tactical tokens, moves full force details into the sidebar, adds direct board token selection/targeting, and guards the board with readability audits for all three demo battles from both selectable sides. The latest visual smoke artifact is `/private/tmp/montytest-cycle240-final.png`.
+
+Verification coverage includes deterministic autoplay, scripted UI action flows, compact-board and accessibility catalogs, save/load relaunch rehearsal, root/DZW/Guderian build-matrix commands, cycle-240 readability checks, and critical playability acceptance reports. The larger 35-battle campaign remains planned content; the demo authors only the three locked battle data packs.
+
 ## Historical Scope
 
 Wikipedia was used as the initial open research shelf for [Bernard Montgomery](https://en.wikipedia.org/wiki/Bernard_Montgomery)'s World War II battles. The playable campaign should prioritize battles and operations where Montgomery commanded the 3rd Infantry Division, temporarily handled II Corps at Dunkirk, commanded the Eighth Army, commanded Allied ground forces in Normandy, or commanded 21st Army Group in north-west Europe.

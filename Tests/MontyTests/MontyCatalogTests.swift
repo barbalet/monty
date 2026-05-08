@@ -241,4 +241,309 @@ final class MontyCatalogTests: XCTestCase {
         XCTAssertTrue(MontyAppIdentity.selectedSideStorageKey.hasPrefix("com.barbalet.monty"))
         XCTAssertEqual(MontyAppIdentity.sharedBattleSurfaceName, HistoricalPlayableSurfaceCatalog.sharedHostSurfaceName)
     }
+
+    func testCycle132AccessibilityCatalogCoversPlayableBoardControlsAndMontyTest() {
+        let identifiers = MontyAccessibilityCatalog.cycle132RequiredIdentifiers
+
+        XCTAssertTrue(identifiers.contains(MontyAccessibilityID.campaignList))
+        XCTAssertTrue(identifiers.contains(MontyAccessibilityID.battleScreen))
+        XCTAssertTrue(identifiers.contains(MontyAccessibilityID.battleBoard))
+        XCTAssertTrue(identifiers.contains(MontyAccessibilityID.battleSidebar))
+        XCTAssertTrue(identifiers.contains(MontyAccessibilityID.battleActionFeedback))
+        XCTAssertTrue(identifiers.contains(MontyAccessibilityID.battleObjectives))
+        XCTAssertTrue(identifiers.contains(MontyAccessibilityID.battleLog))
+        XCTAssertTrue(identifiers.contains(MontyAccessibilityID.battleNextPhaseButton))
+        XCTAssertTrue(identifiers.contains(MontyAccessibilityID.battleAITurnButton))
+        XCTAssertTrue(identifiers.contains(MontyAccessibilityID.battleDebriefPanel))
+        XCTAssertTrue(identifiers.contains(MontyAccessibilityID.battlePersistedResult))
+        XCTAssertTrue(identifiers.contains(MontyAccessibilityID.montyTestFirstBattleAutoplay))
+        XCTAssertTrue(identifiers.contains(MontyAccessibilityID.montyTestResultSummary))
+
+        for battleID in MontyBattleCatalog.demoBattleIDs {
+            let flowIdentifiers = MontyAccessibilityCatalog.launchFlowIdentifiers(
+                battleID: battleID,
+                chosenSideID: MontySideID.montgomery
+            )
+            XCTAssertTrue(flowIdentifiers.contains(MontyAccessibilityID.sharedBattleSurface(battleID)))
+            XCTAssertTrue(flowIdentifiers.contains(MontyAccessibilityID.persistedResult(battleID)))
+            XCTAssertTrue(flowIdentifiers.contains(MontyAccessibilityID.battleBoard))
+        }
+    }
+
+    func testCycle138ScreenshotQATargetsCoverCampaignBoardDebriefAndMontyTest() {
+        let targets = MontyScreenshotQACatalog.targets
+
+        XCTAssertTrue(MontyScreenshotQACatalog.isReady)
+        XCTAssertEqual(MontyScreenshotQACatalog.cycleRange, 133...138)
+        XCTAssertEqual(targets.count, 17)
+        XCTAssertTrue(targets.allSatisfy(\.hasStableViewport))
+        XCTAssertTrue(targets.contains { $0.surface == .campaign && $0.requiredAccessibilityIdentifiers.contains(MontyAccessibilityID.campaignList) })
+        XCTAssertTrue(targets.contains { $0.surface == .montyTest && $0.requiredAccessibilityIdentifiers.contains(MontyAccessibilityID.montyTestResultSummary) })
+
+        for battleID in MontyBattleCatalog.demoBattleIDs {
+            XCTAssertTrue(targets.contains { $0.battleID == battleID && $0.surface == .briefing })
+            XCTAssertTrue(targets.contains { $0.battleID == battleID && $0.surface == .sideSelection })
+            XCTAssertTrue(targets.contains { $0.battleID == battleID && $0.surface == .playableBoard && $0.viewport == .desktop })
+            XCTAssertTrue(targets.contains { $0.battleID == battleID && $0.surface == .playableBoard && $0.viewport == .compact })
+            XCTAssertTrue(targets.contains { $0.battleID == battleID && $0.surface == .debrief })
+        }
+    }
+
+    func testCycle140UIAutomationScriptsDriveDemoBattlesThroughActions() throws {
+        let scripts = MontyUIAutomationCatalog.scripts
+        let results = try MontyUIAutomationRunner.runAll()
+
+        XCTAssertTrue(MontyUIAutomationCatalog.isReady)
+        XCTAssertEqual(MontyUIAutomationCatalog.cycleRange, 139...140)
+        XCTAssertEqual(scripts.count, MontyBattleCatalog.demoBattleIDs.count * 2)
+        XCTAssertEqual(results.count, scripts.count)
+
+        for result in results {
+            XCTAssertTrue(result.passed, result.finalResultSummary)
+            XCTAssertTrue(result.completedToDebrief, result.finalResultSummary)
+            XCTAssertTrue(result.bothSidesActed, result.finalResultSummary)
+            XCTAssertTrue(result.persistedResult, result.finalResultSummary)
+            XCTAssertTrue(result.observedAccessibilityIdentifiers.contains(MontyAccessibilityID.battleMoveButton))
+            XCTAssertTrue(result.observedAccessibilityIdentifiers.contains(MontyAccessibilityID.battleShootButton))
+            XCTAssertTrue(result.observedAccessibilityIdentifiers.contains(MontyAccessibilityID.battleAssaultButton))
+            XCTAssertTrue(result.observedAccessibilityIdentifiers.contains(MontyAccessibilityID.battleAITurnButton))
+            XCTAssertTrue(result.observedAccessibilityIdentifiers.contains(MontyAccessibilityID.battlePersistedResult))
+        }
+    }
+
+    func testCycle140VisualAccessibilityAndUIQAAcceptanceReportIsReady() throws {
+        let report = try MontyCycle140AcceptanceCatalog.report()
+
+        XCTAssertTrue(report.isReady, report.blockers.joined(separator: "\n"))
+        XCTAssertTrue(MontyCycle140AcceptanceCatalog.acceptanceReadyThroughCycle140)
+        XCTAssertEqual(report.cycleStart, 121)
+        XCTAssertEqual(report.cycleEnd, 140)
+        XCTAssertTrue(report.visualAuditPassed)
+        XCTAssertEqual(report.automationScriptCount, MontyBattleCatalog.demoBattleIDs.count * 2)
+        XCTAssertEqual(report.automationPassedCount, report.automationScriptCount)
+    }
+
+    func testCycle144ExtendedUIAutomationCoversAssaultAndBothSides() throws {
+        let report = MontyExtendedUIAutomationCatalog.report
+
+        XCTAssertTrue(report.isReady)
+        XCTAssertTrue(MontyExtendedUIAutomationCatalog.isReady)
+        XCTAssertEqual(report.cycleRange, 141...144)
+        XCTAssertEqual(report.scriptCount, MontyBattleCatalog.demoBattleIDs.count * 2)
+        XCTAssertTrue(report.scriptsCoverAssault)
+        XCTAssertTrue(report.scriptsCoverBothSides)
+        XCTAssertTrue(report.scriptsCoverAllDemoBattles)
+    }
+
+    func testCycle150InteractionPolishReportCoversCompactBoardControlsAndFeedback() {
+        let report = MontyInteractionPolishCatalog.report
+
+        XCTAssertTrue(report.isReady, report.blockers.joined(separator: "\n"))
+        XCTAssertTrue(MontyInteractionPolishCatalog.isReady)
+        XCTAssertEqual(report.cycleRange, 145...150)
+        XCTAssertEqual(Set(report.requirements), Set(MontyInteractionPolishRequirement.allCases))
+        XCTAssertEqual(report.compactBoardTargetCount, MontyBattleCatalog.demoBattleIDs.count)
+        XCTAssertTrue(report.requiredControlIdentifiers.contains(MontyAccessibilityID.battleActionFeedback))
+        XCTAssertTrue(report.requiredControlIdentifiers.contains(MontyAccessibilityID.battleRestartButton))
+    }
+
+    func testCycle156BuildMatrixCatalogCoversRootDZWGuderianAndXcodeSchemes() {
+        let report = MontyBuildMatrixCatalog.report
+
+        XCTAssertTrue(report.isReady)
+        XCTAssertTrue(MontyBuildMatrixCatalog.isReady)
+        XCTAssertEqual(report.cycleRange, 151...156)
+        XCTAssertEqual(Set(report.commands.map(\.id)), Set(MontyVerificationCommandID.allCases))
+        XCTAssertTrue(report.commands.contains { $0.workingDirectory == "." && $0.command == "swift test" })
+        XCTAssertTrue(report.commands.contains { $0.workingDirectory == "guderian/dzw" && $0.command == "swift test" })
+        XCTAssertTrue(report.commands.contains { $0.workingDirectory == "guderian" && $0.command == "swift build" })
+        XCTAssertTrue(report.commands.contains { $0.command.contains("Monty.xcodeproj") && $0.command.contains("-scheme Monty") })
+    }
+
+    func testCycle160CampaignProgressCodecRoundTripsAndRejectsGuderianPayload() throws {
+        let flow = try MontyLaunchFlowResolver.makeLaunchFlow(
+            battleID: .alamElHalfa,
+            chosenSideID: MontySideID.opposition
+        )
+        var progress = MontyCampaignProgress()
+        progress.recordSelectedSide(MontySideID.opposition, for: .alamElHalfa)
+        let completion = MontyLaunchFlowResolver.complete(
+            flow,
+            progress: &progress,
+            winningSideID: MontySideID.opposition,
+            score: 12,
+            completedTurn: 2
+        )
+
+        let encoded = try MontyCampaignProgressCodec.encode(progress)
+        let decoded = try MontyCampaignProgressCodec.decode(encoded)
+
+        XCTAssertEqual(decoded, progress)
+        XCTAssertEqual(decoded.lastSelectedSideByBattle[.alamElHalfa], MontySideID.opposition)
+        XCTAssertEqual(decoded.completionRecord(for: .alamElHalfa), completion)
+        XCTAssertFalse(MontyAppIdentity.campaignProgressStorageKey.localizedCaseInsensitiveContains("guderian"))
+
+        let wrongAppPayload = encoded.replacingOccurrences(
+            of: MontyAppIdentity.bundleIdentifier,
+            with: "com.barbalet.guderian"
+        )
+        XCTAssertThrowsError(try MontyCampaignProgressCodec.decode(wrongAppPayload)) { error in
+            XCTAssertEqual(error as? MontyProgressCodecError, .wrongApplication("com.barbalet.guderian"))
+        }
+    }
+
+    func testCycle160SaveLoadHardeningAndAcceptanceReportAreReady() throws {
+        let saveLoad = try MontySaveLoadHardeningCatalog.report()
+        let acceptance = try MontyCycle160AcceptanceCatalog.report()
+
+        XCTAssertTrue(saveLoad.isReadyThroughCycle160)
+        XCTAssertTrue(MontySaveLoadHardeningCatalog.isReadyThroughCycle160)
+        XCTAssertTrue(acceptance.isReady, acceptance.blockers.joined(separator: "\n"))
+        XCTAssertTrue(MontyCycle160AcceptanceCatalog.acceptanceReadyThroughCycle160)
+        XCTAssertEqual(acceptance.cycleStart, 141)
+        XCTAssertEqual(acceptance.cycleEnd, 160)
+        XCTAssertTrue(acceptance.extendedUIAutomationReady)
+        XCTAssertTrue(acceptance.interactionPolishReady)
+        XCTAssertTrue(acceptance.buildMatrixReady)
+        XCTAssertTrue(acceptance.saveLoadReady)
+    }
+
+    func testHistoricalPlayableSurfaceCatalogPublishesRealSwiftUIView() {
+        XCTAssertEqual(HistoricalPlayableSurfaceCatalog.publicSwiftUISurfaceName, "HistoricalPlayableBattleView")
+        XCTAssertTrue(HistoricalPlayableSurfaceCatalog.hasPublicSwiftUIBattleSurface)
+        XCTAssertTrue(HistoricalPlayableSurfaceCatalog.dzwStyleBattleSurface.sharedComponentNames.contains("HistoricalPlayableBattleView"))
+    }
+
+    func testCycle162RelaunchRehearsalCoversEveryDemoBattleAndSide() throws {
+        let report = try MontyRelaunchRehearsalCatalog.report()
+
+        XCTAssertTrue(report.isReadyThroughCycle162)
+        XCTAssertTrue(MontyRelaunchRehearsalCatalog.isReadyThroughCycle162)
+        XCTAssertEqual(report.cycleRange, 161...162)
+        XCTAssertEqual(report.cases.count, MontyBattleCatalog.demoBattleIDs.count * 2)
+        XCTAssertTrue(report.allDemoBattlesCovered)
+        XCTAssertTrue(report.bothSidesCovered)
+        XCTAssertTrue(report.rejectsWrongApplicationPayload)
+        XCTAssertTrue(report.cases.allSatisfy(\.passed))
+    }
+
+    func testCycle168DocumentationCleanupReportCoversPublicCloseoutDocs() {
+        let report = MontyDocumentationCleanupCatalog.report
+
+        XCTAssertTrue(report.isReadyThroughCycle168, report.blockers.joined(separator: "\n"))
+        XCTAssertTrue(MontyDocumentationCleanupCatalog.isReadyThroughCycle168)
+        XCTAssertEqual(report.cycleRange, 163...168)
+        XCTAssertEqual(Set(report.artifacts), Set(MontyDocumentationArtifact.allCases))
+        XCTAssertEqual(Set(report.requirements), Set(MontyDocumentationRequirement.allCases))
+        XCTAssertTrue(report.requirements.contains(.publicHistoricalPlayableBattleView))
+        XCTAssertTrue(report.requirements.contains(.zeroCyclesRemaining))
+    }
+
+    func testCycle174FinalDemoRehearsalReachesDebriefThroughSharedSurface() throws {
+        let report = try MontyFinalDemoRehearsalCatalog.report()
+
+        XCTAssertTrue(report.isReadyThroughCycle174, report.blockers.joined(separator: "\n"))
+        XCTAssertTrue(MontyFinalDemoRehearsalCatalog.isReadyThroughCycle174)
+        XCTAssertEqual(report.cycleRange, 169...174)
+        XCTAssertEqual(report.uiAutomationRunCount, MontyBattleCatalog.demoBattleIDs.count * 2)
+        XCTAssertEqual(report.uiAutomationPassedCount, report.uiAutomationRunCount)
+        XCTAssertEqual(report.autoplayCompletedCount, report.autoplayRunCount)
+        XCTAssertEqual(report.autoplayBothSidesActedCount, report.autoplayRunCount)
+        XCTAssertTrue(report.montyTestCompleted)
+        XCTAssertTrue(report.montyTestEmbedsSharedSurface)
+        XCTAssertEqual(report.sharedSwiftUISurfaceName, HistoricalPlayableSurfaceCatalog.sharedHostSurfaceName)
+    }
+
+    func testCycle180FinalAcceptanceReportIsReadyAndLeavesNoCyclesRemaining() throws {
+        let report = try MontyCycle180AcceptanceCatalog.report()
+
+        XCTAssertTrue(report.isReady, report.blockers.joined(separator: "\n"))
+        XCTAssertTrue(MontyCycle180AcceptanceCatalog.acceptanceReadyThroughCycle180)
+        XCTAssertEqual(report.cycleStart, 161)
+        XCTAssertEqual(report.cycleEnd, 180)
+        XCTAssertEqual(report.cyclesRemaining, 0)
+        XCTAssertEqual(Set(report.passedGates), Set(MontyFinalAcceptanceGate.allCases))
+        XCTAssertEqual(Set(report.verificationCommands.map(\.id)), Set(MontyVerificationCommandID.allCases))
+        XCTAssertTrue(report.verificationCommands.allSatisfy { $0.status == .passed })
+        XCTAssertFalse(report.knownLimitations.isEmpty)
+    }
+
+    func testCycle210DirectBoardSelectionTargetsAndClearsThroughSharedResolver() throws {
+        let session = try MontyDemoBoardSession(
+            battleID: .alamElHalfa,
+            chosenSideID: MontySideID.montgomery
+        )
+        let opening = session.snapshot()
+        let activeUnit = try XCTUnwrap(opening.units.first { $0.sideID == opening.activeSideID })
+        let opposingUnit = try XCTUnwrap(opening.units.first { $0.sideID != opening.activeSideID })
+
+        XCTAssertEqual(
+            HistoricalBoardInteractionResolver.unitTapIntent(for: activeUnit, in: opening),
+            .selectUnit(activeUnit.id)
+        )
+        XCTAssertEqual(
+            HistoricalBoardInteractionResolver.unitTapIntent(for: opposingUnit, in: opening),
+            .selectTarget(opposingUnit.id)
+        )
+
+        session.selectUnit(activeUnit.id)
+        var selected = session.snapshot()
+        XCTAssertEqual(selected.units.first(where: \.selected)?.id, activeUnit.id)
+
+        session.selectTarget(opposingUnit.id)
+        selected = session.snapshot()
+        XCTAssertEqual(selected.units.first(where: \.targeted)?.id, opposingUnit.id)
+
+        session.clearSelection()
+        let cleared = session.snapshot()
+        XCTAssertFalse(cleared.units.contains(where: \.selected))
+        XCTAssertFalse(cleared.units.contains(where: \.targeted))
+        XCTAssertEqual(cleared.lastAction.title, "Selection cleared")
+    }
+
+    func testCycle210CriticalPlayabilityReportTracksGuderianBoundaryAndRemainingWork() {
+        let report = MontyCycle210CriticalPlayabilityCatalog.report()
+
+        XCTAssertTrue(report.isReadyThroughCycle210)
+        XCTAssertTrue(MontyCycle210CriticalPlayabilityCatalog.isReadyThroughCycle210)
+        XCTAssertEqual(report.cycleStart, 181)
+        XCTAssertEqual(report.cycleEnd, 210)
+        XCTAssertEqual(report.cyclesRemaining, 30)
+        XCTAssertEqual(Set(report.completedRequirements), Set(MontyCriticalPlayabilityRequirement.allCases))
+        XCTAssertEqual(Set(report.guderianBoundaryFiles), Set(MontyGuderianGameplayBoundary.allCases))
+        XCTAssertTrue(MontyGuderianGameplayBoundary.nativeBoardSession.sourcePath.contains("NativeBoardSession.swift"))
+        XCTAssertTrue(HistoricalPlayableSurfaceCatalog.boardInteractionProfile.supportsGuderianStyleBoardCommands)
+        XCTAssertTrue(HistoricalPlayableSurfaceCatalog.boardReadabilityProfile.preventsDenseAlwaysOnBoardText)
+        XCTAssertTrue(report.deferredRisks.contains { $0.contains("MontyDemoBoardSession") })
+    }
+
+    func testCycle240ReadabilityAuditsCoverEveryDemoBattleFromBothSides() throws {
+        let cases = try MontyCycle240CriticalAcceptanceCatalog.readabilityCases()
+
+        XCTAssertEqual(cases.count, MontyBattleCatalog.demoBattleIDs.count * 2)
+        XCTAssertEqual(Set(cases.map(\.battleID)), Set(MontyBattleCatalog.demoBattleIDs))
+        XCTAssertEqual(Set(cases.map(\.sideID)), [MontySideID.montgomery, MontySideID.opposition])
+        XCTAssertTrue(cases.allSatisfy(\.passed))
+        XCTAssertTrue(cases.allSatisfy { $0.audit.directBoardNameLabelCount == 0 })
+        XCTAssertTrue(cases.allSatisfy { $0.audit.estimatedOverlappingTokenPairs == 0 })
+        XCTAssertTrue(cases.allSatisfy { $0.audit.usesIDOnlyUnitTokens })
+    }
+
+    func testCycle240CriticalAcceptanceReportIsReadyAndLeavesNoCyclesRemaining() throws {
+        let report = try MontyCycle240CriticalAcceptanceCatalog.report()
+
+        XCTAssertTrue(report.isReadyThroughCycle240)
+        XCTAssertTrue(MontyCycle240CriticalAcceptanceCatalog.isReadyThroughCycle240)
+        XCTAssertEqual(report.cycleStart, 211)
+        XCTAssertEqual(report.cycleEnd, 240)
+        XCTAssertEqual(report.cyclesRemaining, 0)
+        XCTAssertEqual(Set(report.completedRequirements), Set(MontyCriticalAcceptanceRequirement.allCases))
+        XCTAssertEqual(report.readabilityCases.count, MontyBattleCatalog.demoBattleIDs.count * 2)
+        XCTAssertEqual(report.autoplayRunCount, MontyBattleCatalog.demoBattleIDs.count * 2)
+        XCTAssertEqual(report.autoplayCompletedCount, report.autoplayRunCount)
+        XCTAssertEqual(report.autoplayBothSidesActedCount, report.autoplayRunCount)
+        XCTAssertTrue(HistoricalPlayableSurfaceCatalog.boardViewportProfile.isCriticalViewportReady)
+        XCTAssertTrue(report.visualSmokeArtifacts.contains { $0.path.contains("cycle240") })
+        XCTAssertFalse(report.knownLimitations.isEmpty)
+    }
 }

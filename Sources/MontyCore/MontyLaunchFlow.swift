@@ -181,14 +181,10 @@ public enum MontyLaunchFlowResolver {
                 chosenSideID: chosenSideID,
                 launch: launch,
                 autoplayConfiguration: dataPack.autoplayConfiguration,
-                requiredAccessibilityIdentifiers: [
-                    "monty-campaign-row-\(battleID.rawValue)",
-                    "monty-battle-detail-\(battleID.rawValue)",
-                    "monty-side-\(chosenSideID)",
-                    "monty-shared-battle-surface-\(battleID.rawValue)",
-                    "monty-debrief-panel-\(battleID.rawValue)",
-                    "monty-persisted-result-\(battleID.rawValue)",
-                ]
+                requiredAccessibilityIdentifiers: MontyAccessibilityCatalog.launchFlowIdentifiers(
+                    battleID: battleID,
+                    chosenSideID: chosenSideID
+                )
             )
         } catch let error as HistoricalSideSelectionError {
             throw MontyLaunchFlowError.sideSelection(error.description)

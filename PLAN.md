@@ -1,24 +1,25 @@
-# Monty 180-Cycle Playable Demo Plan
+# Monty 240-Cycle Playable Demo Plan
 
 ## Current Reality Check
 
-`monty` has useful foundations: a 35-battle catalog, three demo battle data packs, side selection, launch-flow records, a deterministic `HistoricalBoardSession`, autoplay, and root tests that pass.
+`monty` now has a 35-battle catalog, three playable demo battle data packs, side selection, launch-flow records, a deterministic `HistoricalBoardSession`, a concrete shared `HistoricalPlayableBattleView`, autoplay, visual/accessibility/UI-automation gates, compact interaction polish, Monty-owned progress persistence, relaunch rehearsal, and a passing root/DZW/Guderian/Xcode build matrix.
 
-It does not yet have the Guderian-style playable interface in the Monty app. The visible Monty route is still a campaign/detail page with a `Run to Debrief` button. The name `HistoricalPlayableBattleView` exists as a contract string, not as a public SwiftUI battle surface that Monty can instantiate. The current acceptance tests prove model/autoplay contracts, but they do not prove that a human can play a battle through the actual interface.
+Cycles 161-180 closed the old contract-only gap in a narrow technical sense: `HistoricalPlayableBattleView` is now a public SwiftUI surface in the historical DZW layer over `HistoricalBoardSnapshot`, and both Monty and `MontyTest` instantiate it. A critical visual smoke pass after Cycle 180 showed that this is still not sufficient for a playable game. The board has unreadable overlapping labels, the command flow is still closer to a Monty demo-session wrapper than to the real Guderian gameplay interface, and acceptance can still be too forgiving about visual and interaction quality.
 
-The reference implementation remains `guderian`: campaign briefing, playable board, unit selection, movement, combat controls, phase flow, AI turn, debrief, and progress persistence. The work below turns that reference into a real shared historical battle interface and wires Monty into it.
+The reference implementation remains `guderian`: campaign briefing, playable board, unit selection, movement, combat controls, phase flow, AI turn, debrief, and progress persistence. The next 60 cycles are a critical playability repair extension that replaces the remaining demo-wrapper behavior with a real Guderian-backed interface path and makes board readability a hard acceptance gate.
 
 ## Turnaround Estimate
 
-Recommended turnaround: **180 cycles**.
+Recommended turnaround: **240 cycles**.
 
-This implements all three scopes that were discussed:
+The first 180 cycles implemented the broad demo shell and public shared surface. The additional 60 cycles fix the basic elements that are still not critically testable:
 
 - **Cycles 1-30:** recover literal playability so the demo is no longer a static/detail-page experience.
 - **Cycles 31-90:** implement the proper Guderian-style shared interface instead of a Monty-only patch.
 - **Cycles 91-180:** harden, polish, test, and package the demo so it cannot pass acceptance without being genuinely playable.
+- **Cycles 181-240:** repair critical playability failures: unreadable board presentation, insufficient Guderian gameplay-interface usage, weak human interaction affordances, and visual acceptance gaps.
 
-The 180-cycle estimate is intentionally larger than the minimum fix. It includes the emergency playable surface, the real shared-interface extraction, Guderian parity protection, Monty-specific polish, UI automation, screenshot/manual acceptance, and documentation cleanup.
+The 240-cycle estimate includes the original emergency playable surface, the public shared-interface extraction, Guderian parity protection, Monty-specific polish, UI automation, screenshot/manual acceptance, documentation cleanup, and now a dedicated repair band for the problems found by critical visual review.
 
 ## Demo Goal
 
@@ -57,6 +58,58 @@ Game-specific code should include:
 - **Cycles 91-120:** three-battle gameplay completeness and MontyTest parity.
 - **Cycles 121-150:** UI polish, accessibility, visual QA, and automation.
 - **Cycles 151-180:** release hardening, docs, packaging, and final acceptance.
+- **Cycles 181-210:** Guderian gameplay-interface replacement and real interaction audit.
+- **Cycles 211-240:** board readability, visual proof, and critical-playability acceptance.
+
+## Status Through Cycle 180
+
+Cycles 1-180 are complete in this checkout. See `docs/cycle-140-visual-accessibility-and-ui-qa.md` for the visual/accessibility pass, `docs/cycle-160-ui-polish-build-and-save-load.md` for the extended UI automation and save/load hardening pass, and `docs/cycle-180-final-demo-closeout.md` for relaunch rehearsal, documentation cleanup, final demo rehearsal, and acceptance closeout.
+
+The post-180 critical review invalidates the previous readiness claim. Monty has a visible shared battle surface, but it is not yet a critically playable game.
+
+## Status Through Cycle 210
+
+Cycles 181-210 are complete in this checkout. See `docs/cycle-210-critical-playability-interface-repair.md` for the Guderian boundary audit, shared interaction resolver, direct board selection/targeting callbacks, emergency label declutter, and regression commands.
+
+Technical changes landed in this band:
+
+- `HistoricalBoardInteractionResolver` now centralizes the Guderian-style board tap intent: active-side unit taps select units; opposing unit taps target enemies.
+- `HistoricalPlayableBattleView` now exposes direct unit selection, direct target selection, and clear-selection callbacks while preserving command buttons for select, target, move, shoot, assault, resolve, phase, AI phase, restart, and debrief.
+- Monty and `MontyTest` pass those callbacks into the shared surface instead of relying only on command-button scripting.
+- `MontyDemoBoardSession` now supports clear selection and is documented as a compatibility session, not final proof that the real native engine bridge is complete.
+- The shared board no longer draws dense terrain/objective name blocks directly over the map; terrain detail moved to the sidebar, objective tokens are compact, unit labels are abbreviated with full help/accessibility text, and board height is capped so command buttons remain reachable in `MontyTest`.
+- New cycle-210 tests guard direct board selection, target selection, clearing, Guderian boundary accounting, and readable-label profile metadata.
+
+Verification completed for cycle 210:
+
+- `swift build` from the Monty root.
+- `swift test` from the Monty root: 29 tests passed.
+- `swift test` from `guderian/dzw`: 102 tests passed.
+- `swift build` from `guderian`.
+- `MontyTest` visual smoke captured `/private/tmp/montytest-cycle210-final.png`; the old dense board-label block is gone and command buttons remain visible.
+
+## Status Through Cycle 240
+
+Cycles 211-240 are complete in this checkout. See `docs/cycle-240-critical-playability-closeout.md` for the final readability, viewport, visual smoke, and critical acceptance notes.
+
+Technical changes landed in this band:
+
+- The shared board now uses ID-only tactical tokens instead of full unit-name cards, so unit names cannot overlap into an unintelligible text block.
+- Full unit names, roles, side ownership, and selected/targeted state moved into a dedicated `Forces` sidebar section.
+- `HistoricalBoardLayoutResolver` offsets clustered unit tokens in board coordinate space and exposes `HistoricalBoardReadabilityAudit` for regression checks.
+- The shared readability profile now requires no direct terrain, objective, or unit name labels on the board; details must be disclosed through sidebar/help surfaces.
+- The shared viewport profile records the accepted aspect ratio and max board heights that keep command buttons visible.
+- New cycle-240 tests audit all three demo battle opening boards from both selectable sides and require zero direct board name labels and zero estimated unit-token collisions.
+- `MontyCycle240CriticalAcceptanceCatalog.report()` records zero cycles remaining, demo-battle readability coverage, autoplay-to-debrief coverage, verification commands, visual smoke artifact path, and known limitations.
+
+Verification completed for cycle 240:
+
+- `swift test` from the Monty root: 31 tests passed.
+- `swift test` from `guderian/dzw`: 102 tests passed.
+- `swift build` from `guderian`.
+- `MontyTest` visual smoke captured `/private/tmp/montytest-cycle240-final.png`; the board now uses numbered unit tokens, separated force details, reachable command buttons, and no dense board text block.
+
+Cycles remaining: **0**.
 
 ## Cycles 1-180
 
@@ -96,18 +149,38 @@ Game-specific code should include:
 | 169-174 | Final demo rehearsal | Perform a human-facing demo pass through all three battles from both sides, plus MontyTest autoplay, recording blockers and fixing them. |
 | 175-180 | Acceptance closeout | Produce a final readiness report with commands run, UI evidence, known limitations, and explicit confirmation that the old contract-only acceptance gap is closed. |
 
+## Cycles 181-240: Critical Playability Repair
+
+| Cycles | Focus | Technical Output |
+| --- | --- | --- |
+| 181-185 | Critical playability audit | Document every gap between Monty and the real Guderian play loop: board viewport, direct unit selection, legal action calculation, command toolbar, turn/phase authority, combat resolution, AI handoff, debrief, and persistence. Convert the audit into failing acceptance checks rather than prose-only notes. |
+| 186-190 | Guderian interface boundary | Identify the actual Guderian gameplay interface types, view models, and engine/session calls that should be shared or adapted. Decide which APIs move to DZW historical/shared code and which remain Guderian-specific. Remove acceptance language that allows a Monty-only imitation to pass. |
+| 191-195 | Replace demo-session dependency | Replace or wrap `MontyDemoBoardSession` so the Monty board uses the same gameplay command semantics as Guderian: selected unit identity, legal move targets, legal fire targets, assault eligibility, pending choice resolution, phase advance, AI phase, and game-over/debrief state. Keep temporary adapters only behind a clearly named compatibility layer. |
+| 196-200 | Real board interaction model | Add direct board interactions instead of command-only scripting: click/tap unit selection, target selection from enemy tokens, clear selected/target state, hover/help details where available, and visible disabled-state reasons tied to engine legality. |
+| 201-205 | Command and phase parity | Rebuild the Monty command panel to match Guderian interaction expectations: current side, phase, selected unit, legal actions, pending choices, AI turn/run controls, restart, debrief, and event log. Add tests that fail if actions mutate only a mock preview snapshot. |
+| 206-210 | Guderian regression protection | Build and test Guderian after the shared-interface changes. Add a smoke route proving Guderian still opens its playable board and can perform select, move, combat, phase advance, AI handoff, and debrief using the shared or adapted code. |
+| 211-215 | Label collision system | Remove always-on dense map text from the board. Implement a label strategy with collision avoidance, priority tiers, truncation rules, selected/hovered detail disclosure, and optional label layers. No board state may render a large unreadable block of overlapping text. |
+| 216-220 | Token and terrain readability | Rework unit tokens, objective markers, terrain bands, and zone labels for legibility at desktop and compact sizes. Stabilize token dimensions, z-order, contrast, selection outlines, target outlines, and minimum touch/click areas. |
+| 221-225 | Board viewport and scaling | Add a real board viewport model: aspect ratio constraints, pan/zoom or fit modes if needed, scroll behavior, compact layout breakpoints, and screenshot checks for all three demo battles. The board must never rely on text overlap to communicate essential state. |
+| 226-230 | Three-battle critical tuning | Re-check Alam el Halfa, Second El Alamein, and Operation Epsom with the repaired interface. Tune initial placements, objective density, terrain label priority, AI priorities, scoring triggers, and debrief state so each battle is understandable and playable from both sides. |
+| 231-235 | Visual and functional acceptance automation | Add or update automated checks that inspect board token count, visible command availability, side/phase labels, debrief state, and screenshot/pixel evidence for nonblank readable board regions. Include regression checks for the exact text-overlap failure observed after Cycle 180. |
+| 236-240 | Critical demo rehearsal and closeout | Perform a manual critical-test rehearsal through all three demo battles from both sides plus MontyTest. Record before/after screenshots, commands run, known limitations, and explicit evidence that Monty is using the real Guderian gameplay interface rather than a standalone scripted demo wrapper. |
+
 ## Acceptance Gates
 
-The 180-cycle demo is accepted only when all of these are true:
+The 240-cycle demo is accepted only when all of these are true:
 
 - Monty launches a real playable battle board from the campaign flow for each demo battle.
 - `HistoricalPlayableBattleView` is a real public SwiftUI surface, not only a contract string.
-- The playable surface supports unit selection, movement, shooting, assault, pending-choice resolution, phase advance, AI turn, restart, debrief, and progress persistence.
+- The playable surface uses the real Guderian gameplay interface or a thin shared adapter over the same engine semantics; a Monty-only scripted demo-session wrapper is not sufficient.
+- The playable surface supports direct unit selection, direct target selection, movement, shooting, assault, pending-choice resolution, phase advance, AI turn, restart, debrief, and progress persistence.
+- The board is readable at accepted desktop and compact sizes. Terrain labels, unit labels, objective markers, and status text must not overlap into unintelligible blocks.
+- Essential game state must be visible without relying on overlapping board text; selected units, targets, legal actions, phase, active side, objectives, and debrief state must have clear, separate affordances.
 - Monty can play Alam el Halfa, Second El Alamein, and Operation Epsom from either selectable side.
 - `MontyTest` embeds the same shared playable battle surface and autoplays Alam el Halfa to a real debrief.
 - Guderian still builds and keeps its playable interface after shared extraction.
 - Tests include at least one guard that would fail if Monty regressed to the current detail-page `Run to Debrief` shortcut.
-- Visual/UI checks confirm the board is visible, usable, and not overlapped or blank at target desktop window sizes.
+- Visual/UI checks confirm the board is visible, usable, nonblank, and readable at target desktop and compact window sizes.
 
 ## Non-Goals For This Demo
 
@@ -121,4 +194,4 @@ The 180-cycle demo is accepted only when all of these are true:
 - The largest product risk is accepting autoplay as a substitute for human playability. The new gates must make that impossible.
 - The largest engineering risk is extracting too much Guderian-specific behavior into shared code. Shared code must stay content-neutral.
 - The largest schedule risk is UI automation on macOS/Xcode. The plan reserves cycles for screenshot and manual demo rehearsal so acceptance is not blocked on one testing method.
-- The current `MontyDemoBoardSession` is useful but simplified. If it feels too fake once placed behind the real interface, gameplay tuning must happen inside the 91-120 cycle band.
+- The current `MontyDemoBoardSession` is useful but simplified. If it remains the primary interaction path, the game can still feel fake even with a visible board. Cycles 181-240 must either replace it with the real Guderian gameplay interface path or confine it behind a thin compatibility adapter with strict parity tests.

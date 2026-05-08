@@ -31,7 +31,8 @@ private struct MontyTestFirstBattleAutoplayView: View {
             }
         }
         .background(Color(red: 0.89, green: 0.86, blue: 0.77))
-        .accessibilityIdentifier("monty-test-first-battle-autoplay")
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(MontyAccessibilityID.montyTestFirstBattleAutoplay)
     }
 
     private var toolbar: some View {
@@ -53,7 +54,7 @@ private struct MontyTestFirstBattleAutoplayView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 240)
-            .accessibilityIdentifier("monty-test-speed-picker")
+            .accessibilityIdentifier(MontyAccessibilityID.montyTestSpeedPicker)
 
             Button {
                 model.step()
@@ -61,7 +62,7 @@ private struct MontyTestFirstBattleAutoplayView: View {
                 Label("Step", systemImage: "forward.frame")
             }
             .disabled(!model.canStep)
-            .accessibilityIdentifier("monty-test-step-button")
+            .accessibilityIdentifier(MontyAccessibilityID.montyTestStepButton)
 
             Button {
                 model.pause()
@@ -69,14 +70,14 @@ private struct MontyTestFirstBattleAutoplayView: View {
                 Label("Pause", systemImage: "pause.fill")
             }
             .disabled(model.runState != .running)
-            .accessibilityIdentifier("monty-test-pause-button")
+            .accessibilityIdentifier(MontyAccessibilityID.montyTestPauseButton)
 
             Button {
                 model.reset()
             } label: {
                 Label("Restart", systemImage: "arrow.clockwise")
             }
-            .accessibilityIdentifier("monty-test-restart-button")
+            .accessibilityIdentifier(MontyAccessibilityID.montyTestRestartButton)
 
             Button {
                 model.runToDebrief()
@@ -85,40 +86,44 @@ private struct MontyTestFirstBattleAutoplayView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(model.runState.isTerminal)
-            .accessibilityIdentifier("monty-test-run-to-debrief-button")
+            .accessibilityIdentifier(MontyAccessibilityID.montyTestRunToDebriefButton)
         }
         .padding(12)
     }
 
     private func battleSurface(snapshot: HistoricalBoardSnapshot<MontyBattleID>) -> some View {
-        GeometryReader { proxy in
-            ZStack {
-                Rectangle()
-                    .fill(Color(red: 0.77, green: 0.70, blue: 0.52))
-
-                ForEach(snapshot.zones) { zone in
-                    zoneView(zone, proxy: proxy)
-                }
-
-                ForEach(snapshot.objectives) { objective in
-                    objectiveView(objective, proxy: proxy)
-                }
-
-                ForEach(snapshot.units) { unit in
-                    unitView(unit, proxy: proxy)
-                }
-            }
-            .overlay(alignment: .topLeading) {
-                Text("Turn \(snapshot.turnNumber) | \(snapshot.activeSideID) | \(snapshot.phase.rawValue)")
-                    .font(.caption.weight(.semibold))
-                    .padding(8)
-                    .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 4))
-                    .foregroundStyle(.white)
-                    .padding(8)
-            }
+        VStack {
+            HistoricalPlayableBattleView(
+                battleTitle: model.title,
+                selectedSideTitle: "Montgomery command",
+                opposingSideTitle: "Opposing command",
+                snapshot: snapshot,
+                debrief: model.result.map {
+                    HistoricalPlayableDebriefSummary(
+                        title: $0.completionRecord.victoryBandLabel,
+                        summary: $0.completionRecord.debriefSummary,
+                        scoreLine: "\($0.completionRecord.score) VP | Turn \($0.completionRecord.completedTurn)",
+                        persistedResultIdentifier: MontyAccessibilityID.battlePersistedResult
+                    )
+                },
+                onSelectReadyUnit: model.selectReadyUnit,
+                onSelectNearestEnemy: model.selectNearestEnemy,
+                onSelectUnit: model.selectBoardUnit,
+                onSelectTarget: model.targetBoardUnit,
+                onClearSelection: model.clearBoardSelection,
+                onMove: model.moveSelectedUnit,
+                onShoot: model.shootSelectedTarget,
+                onAssault: model.assaultSelectedTarget,
+                onResolvePending: model.resolvePendingChoice,
+                onNextPhase: model.advancePhase,
+                onAITurn: model.step,
+                onRestart: model.reset,
+                onRunToDebrief: model.runToDebrief
+            )
         }
         .frame(minWidth: 620, maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityIdentifier("monty-test-primary-battle-surface")
+        .padding()
+        .accessibilityIdentifier(MontyAccessibilityID.montyTestPrimaryBattleSurface)
     }
 
     private func sidePanel(snapshot: HistoricalBoardSnapshot<MontyBattleID>) -> some View {
@@ -132,7 +137,7 @@ private struct MontyTestFirstBattleAutoplayView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .accessibilityIdentifier("monty-test-safety-cap")
+            .accessibilityIdentifier(MontyAccessibilityID.montyTestSafetyCap)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Event Log")
@@ -148,7 +153,7 @@ private struct MontyTestFirstBattleAutoplayView: View {
                     }
                 }
             }
-            .accessibilityIdentifier("monty-test-event-log")
+            .accessibilityIdentifier(MontyAccessibilityID.montyTestEventLog)
 
             if let result = model.result {
                 VStack(alignment: .leading, spacing: 8) {
@@ -157,13 +162,13 @@ private struct MontyTestFirstBattleAutoplayView: View {
                     Text(result.report.finalResultSummary)
                         .font(.callout)
                         .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("monty-test-result-summary")
+                        .accessibilityIdentifier(MontyAccessibilityID.montyTestResultSummary)
                     Text(result.completionRecord.debriefSummary)
                         .font(.caption)
                 }
                 .padding(10)
                 .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: 6))
-                .accessibilityIdentifier("monty-test-result-panel")
+                .accessibilityIdentifier(MontyAccessibilityID.montyTestResultPanel)
             } else {
                 Text(snapshot.lastAction.detail)
                     .font(.callout)
@@ -190,6 +195,7 @@ private struct MontyTestFirstBattleAutoplayView: View {
                     .multilineTextAlignment(.center)
                     .padding(2)
             }
+            .accessibilityIdentifier(MontyAccessibilityID.battleZone(zone.id))
     }
 
     private func objectiveView(_ objective: HistoricalBoardObjectiveSnapshot, proxy: GeometryProxy) -> some View {
@@ -199,6 +205,7 @@ private struct MontyTestFirstBattleAutoplayView: View {
             .frame(width: 18, height: 18)
             .position(position(objective.location, proxy: proxy))
             .help(objective.name)
+            .accessibilityIdentifier(MontyAccessibilityID.battleObjectiveToken(objective.id))
     }
 
     private func unitView(_ unit: HistoricalBoardUnitSnapshot, proxy: GeometryProxy) -> some View {
@@ -219,6 +226,7 @@ private struct MontyTestFirstBattleAutoplayView: View {
         }
         .frame(width: 104)
         .position(position(unit.position, proxy: proxy))
+        .accessibilityIdentifier(MontyAccessibilityID.battleUnitToken(unit.id))
     }
 
     private func zoneColor(_ kind: HistoricalMapElementKind) -> Color {
@@ -332,6 +340,63 @@ private final class MontyTestViewModel: ObservableObject {
         }
     }
 
+    func selectReadyUnit() {
+        controller?.session.selectFirstActiveUnit()
+        refreshFromSession()
+    }
+
+    func selectNearestEnemy() {
+        controller?.session.selectNearestEnemyToSelectedUnit()
+        refreshFromSession()
+    }
+
+    func selectBoardUnit(_ id: Int) {
+        controller?.session.selectUnit(id)
+        refreshFromSession()
+    }
+
+    func targetBoardUnit(_ id: Int) {
+        controller?.session.selectTarget(id)
+        refreshFromSession()
+    }
+
+    func clearBoardSelection() {
+        controller?.session.clearSelection()
+        refreshFromSession()
+    }
+
+    func moveSelectedUnit() {
+        _ = controller?.session.moveSelectedUnitTowardNearestObjective(maxDistance: 5)
+        refreshFromSession()
+    }
+
+    func shootSelectedTarget() {
+        _ = controller?.session.shootSelectedTarget()
+        refreshFromSession()
+    }
+
+    func assaultSelectedTarget() {
+        guard let session = controller?.session,
+              let attacker = session.snapshot().units.first(where: { $0.selected }),
+              let target = session.snapshot().units.first(where: { $0.targeted }) else {
+            refreshFromSession()
+            return
+        }
+
+        _ = session.assaultUnit(attacker.id, targetID: target.id, advance: true)
+        refreshFromSession()
+    }
+
+    func resolvePendingChoice() {
+        _ = controller?.session.resolveFirstPendingChoice()
+        refreshFromSession()
+    }
+
+    func advancePhase() {
+        controller?.session.advancePhase()
+        refreshFromSession()
+    }
+
     private func refreshFromController() {
         snapshot = controller?.latestSnapshot
         if result == nil, let controller, let report = controller.lastReport {
@@ -342,5 +407,9 @@ private final class MontyTestViewModel: ObservableObject {
                 progress: controller.progress
             )
         }
+    }
+
+    private func refreshFromSession() {
+        snapshot = controller?.session.snapshot()
     }
 }
