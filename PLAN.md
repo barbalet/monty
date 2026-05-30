@@ -1,5 +1,81 @@
 # Monty 240-Cycle Playable Demo Plan
 
+## Order-Dice Rules Migration: Monty 200-Cycle Downstream Plan
+
+This plan tracks Monty's downstream migration after DZW and Guderian adopt the order-dice methodology. Monty must consume the shared DZW/Guderian contracts and keep Montgomery-specific content, copy, AI priorities, demo scenarios, progress, and docs separate.
+
+## Dependency Order
+
+1. `guderian/dzw/PLAN.md` owns the rules-engine migration.
+2. `guderian/PLAN.md` owns the Guderian scenario/UI/AI adaptation.
+3. This Monty plan owns downstream compatibility, demo data, UI, MontyTest, documentation, and release acceptance.
+
+Monty work should not define alternate order rules. If a needed rule is missing, it belongs in DZW first.
+
+## Cycle Range Summary
+
+- **Cycles 1-20:** dependency audit and compatibility expectations.
+- **Cycles 21-45:** Monty scenario data migration to order-dice inputs.
+- **Cycles 46-75:** Monty app UI conversion to shared order-dice battle surface.
+- **Cycles 76-105:** Monty AI/autoplay and MontyTest migration.
+- **Cycles 106-130:** three playable demo battles retuned for order-dice play.
+- **Cycles 131-155:** persistence, accessibility, visual QA, and harness updates.
+- **Cycles 156-180:** documentation/book updates and build matrix.
+- **Cycles 181-200:** final downstream acceptance and release handoff.
+
+## Cycles 1-200
+
+| Cycles | Focus | Technical Output |
+| --- | --- | --- |
+| 1-5 | Dependency audit | Identify every Monty type that imports DZW historical snapshots, Guderian shared UI, `MontyDemoBoardSession`, launch flow, side selection, autoplay, and old phase/action names. |
+| 6-10 | Contract comparison | Compare Monty's existing demo session and shared battle view calls with the new Guderian order-dice consumer APIs. List required adapter changes before editing gameplay. |
+| 11-15 | Compatibility gates | Add tests that fail if Monty's default playable path still assumes side-wide movement/shooting/assault phases once DZW/Guderian expose order dice. |
+| 16-20 | Migration shim decision | Decide which Monty-only demo-session pieces can be deleted, which become thin adapters, and which must move down into Guderian/DZW shared contracts. |
+| 21-25 | Side and order ownership | Map Montgomery and opposition side IDs onto DZW order-dice side ownership, drawn dice, human/AI control, and selected-side persistence. |
+| 26-30 | Unit quality data | Assign morale quality, officer modifiers, weapon classes, vehicle classes, and pin behavior to Alam el Halfa, Second El Alamein, and Operation Epsom data packs. |
+| 31-35 | Terrain data | Reclassify Monty demo terrain into open, rough, obstacle, building, road, soft cover, hard cover, and impassable/wreck interactions used by DZW movement and shooting. |
+| 36-40 | Objective/scoring pacing | Convert phase-count scoring assumptions to turn/activation-aware objective scoring, debrief thresholds, and safety caps. |
+| 41-45 | Launch flow | Update `MontyLaunchFlow` and related records to store ruleset, selected side, order-dice launch seed, order cup state where needed, and compatibility metadata. |
+| 46-50 | Shared UI adoption | Replace phase command assumptions in Monty's use of `HistoricalPlayableBattleView` with order picker, drawn die, eligible units, order-test result, and activation log controls. |
+| 51-55 | Board session adapter | Replace or retire `MontyDemoBoardSession` as a rules authority. It may only remain as a thin compatibility adapter over DZW/Guderian order-dice session semantics. |
+| 56-60 | Controls | Replace old Move/Shoot/Assault/Next Phase affordance expectations with Fire, Advance, Run, Ambush, Rally, Down, execute-order, and end-turn cleanup controls. |
+| 61-65 | Sidebar | Add pin count, quality, order state, retained order, order-test details, target reaction, vehicle damage, and morale/debrief status to Monty's sidebar data. |
+| 66-70 | Human interaction | Make direct board selection feed order-dice commands: choose drawn side's unit, choose order, preview legal movement/targets, execute, then wait for the next die. |
+| 71-75 | Error handling | Replace phase-based disabled-state messages with order eligibility, order-test failure, pin, movement, terrain, target, reaction, retained-order, and turn-end explanations. |
+| 76-80 | Monty AI model | Convert Montgomery and opposition AI plans to choose units/orders/actions when their side's die is drawn instead of running a full scripted side phase. |
+| 81-85 | Autoplay runner | Update `MontyDemoAutoplayRunner` so each step is an activation with order choice, order test, action execution, and turn-end cleanup. |
+| 86-90 | MontyTest | Convert `MontyTest` to show order cup, drawn side, current activation, order choices, activation log, safety cap, and run-to-debrief outcome. |
+| 91-95 | Replay signatures | Add deterministic replay signatures for the three demo battles under the new order-dice rules and both selected sides. |
+| 96-100 | AI fallback behavior | Add Rally/Down/Ambush choices, pin-aware target selection, and activation skipping/failure handling for both Monty playable sides. |
+| 101-105 | Debrief records | Ensure debrief records capture winning side, selected side, turn count, activation count, score, and relevant order-dice blockers. |
+| 106-110 | Alam el Halfa tuning | Retune movement distances, ridge defense, Axis armour pressure, mine/terrain effects, pins, Down/Ambush/Rally decisions, and debrief thresholds. |
+| 111-115 | Second El Alamein tuning | Retune minefield lanes, infantry/armour mix, objective pressure, pins from artillery/HE, Advance/Run pacing, and debrief thresholds. |
+| 116-120 | Operation Epsom tuning | Retune Odon crossings, bridgehead expansion, Hill 112 pressure, German counterattack behavior, vehicle damage, and close-quarters outcomes. |
+| 121-125 | Cross-demo balance | Normalize activation counts, safety caps, AI pressure, scoring ranges, order variety, and failure/debrief pacing across all three demos. |
+| 126-130 | Both-side acceptance | Prove each demo can be played as Montgomery or the opposing force through at least one full order-dice turn and through autoplay debrief. |
+| 131-135 | Persistence migration | Version Monty's campaign progress and selected-side storage for order-dice battle records. Preserve old completion data where possible. |
+| 136-140 | Accessibility identifiers | Stabilize identifiers for order cup, die draw, order picker, unit order, pin count, order test, Rally, Down, Ambush, Fire, Advance, Run, and debrief. |
+| 141-145 | Screenshot QA | Add screenshot targets for campaign, side selection, order-dice battle, activation log, debrief, compact layout, and MontyTest. |
+| 146-150 | UI automation | Update UI automation scripts so they choose a side, draw/observe a die, choose an eligible unit, assign an order, resolve action, run AI activation, and reach debrief. |
+| 151-155 | Readability audit | Ensure order-dice UI additions do not reintroduce board label collisions, hidden controls, or unreadable compact layouts. |
+| 156-160 | README and book docs | Update Monty README/book docs to explain order dice, selected side, order choices, pins, morale, AI activations, and demo limitations. |
+| 161-165 | PLAN/docs alignment | Update Monty cycle docs and acceptance catalogs so stale phase-flow terms no longer describe the default game. |
+| 166-170 | Build matrix | Run root `swift test`, root `swift build`, Guderian build/test, DZW build/test, and any maintained Xcode scheme checks. |
+| 171-175 | Visual rehearsal | Perform manual rehearsal for all three demo battles from both sides with screenshots or notes covering order cup, activation flow, and debrief. |
+| 176-180 | Downstream bug pass | Fix Monty-only integration bugs found after DZW/Guderian migration: labels, persistence, accessibility, AI pacing, and launch-flow mismatches. |
+| 181-185 | Release report | Produce a Monty order-dice acceptance report with commands run, covered battles, covered sides, visual evidence, known limitations, and dependency versions. |
+| 186-190 | Deprecated API cleanup | Remove or clearly quarantine phase-flow APIs, old automation actions, and old documentation claims from Monty's default paths. |
+| 191-195 | Cross-layer verification | Verify Monty consumes Guderian/DZW shared contracts without copy-pasting rules, and that Guderian still builds after any consumer API adjustments. |
+| 196-200 | Final closeout | Mark the downstream order-dice migration complete only when DZW, Guderian, and Monty plans have matching acceptance notes and Monty has zero remaining blockers. |
+
+## Monty Acceptance Gates
+
+- Monty's default battle path uses the shared order-dice battle surface.
+- Monty can play Alam el Halfa, Second El Alamein, and Operation Epsom from either side.
+- MontyTest autoplays through activation-by-activation order-dice flow.
+- Monty docs and book material no longer describe the old fixed phase loop as the default.
+- No Monty code becomes an alternate rules authority for order dice, pins, morale, movement, shooting, vehicles, or close quarters.
+
 ## Current Reality Check
 
 `monty` now has a 35-battle catalog, three playable demo battle data packs, side selection, launch-flow records, a deterministic `HistoricalBoardSession`, a concrete shared `HistoricalPlayableBattleView`, autoplay, visual/accessibility/UI-automation gates, compact interaction polish, Monty-owned progress persistence, relaunch rehearsal, and a passing root/DZW/Guderian/Xcode build matrix.
