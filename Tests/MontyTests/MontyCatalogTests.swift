@@ -563,4 +563,66 @@ final class MontyCatalogTests: XCTestCase {
         XCTAssertTrue(report.visualSmokeArtifacts.contains { $0.path.contains("cycle240") })
         XCTAssertFalse(report.knownLimitations.isEmpty)
     }
+
+    func testOrderDiceCycle20MigrationReportAuditsCurrentPhaseDrivenGap() {
+        let report = MontyOrderDiceCycle20Catalog.report()
+
+        XCTAssertTrue(report.isReadyThroughCycle20, report.defaultReadinessBlockers.joined(separator: "\n"))
+        XCTAssertTrue(MontyOrderDiceCycle20Catalog.isReadyThroughOrderDiceCycle20)
+        XCTAssertFalse(report.isDefaultOrderDiceReady)
+        XCTAssertEqual(report.cycleStart, 1)
+        XCTAssertEqual(report.cycleEnd, 20)
+        XCTAssertEqual(report.cyclesRemaining, 180)
+        XCTAssertTrue(report.rulesReferenceURL.contains("bolt_action_reference.pdf"))
+        XCTAssertEqual(report.documentationPath, "docs/monty_order_dice_cycle_001_020.md")
+        XCTAssertEqual(Set(report.auditedDependencies.map(\.area)), Set(MontyOrderDiceMigrationDependencyArea.allCases))
+        XCTAssertEqual(Set(report.contractComparisons.map(\.gap)), Set(MontyOrderDiceContractGap.allCases))
+        XCTAssertTrue(report.auditedDependencies.contains { $0.area == .montyDemoBoardSession && $0.containsLegacyPhaseAssumption })
+        XCTAssertTrue(report.contractComparisons.contains { $0.gap == .orderAssignmentNotImplemented && $0.blocksDefaultOrderDiceReadiness })
+        XCTAssertTrue(report.contractComparisons.contains { $0.gap == .phaseGatedMovement && $0.blocksDefaultOrderDiceReadiness })
+        XCTAssertTrue(report.contractComparisons.contains { $0.gap == .phaseGatedShooting && $0.blocksDefaultOrderDiceReadiness })
+        XCTAssertTrue(report.contractComparisons.contains { $0.gap == .phaseGatedAssault && $0.blocksDefaultOrderDiceReadiness })
+        XCTAssertTrue(report.defaultReadinessBlockers.contains { $0.contains("issueOrder") })
+    }
+
+    func testOrderDiceCycle20CompatibilityGateMatchesCurrentMontySession() throws {
+        let session = try MontyDemoBoardSession(
+            battleID: .alamElHalfa,
+            chosenSideID: MontySideID.montgomery
+        )
+        let opening = session.snapshot()
+        let activeUnit = try XCTUnwrap(opening.units.first { $0.sideID == opening.activeSideID })
+
+        XCTAssertEqual(opening.phase, .movement)
+        XCTAssertTrue(opening.units.allSatisfy { $0.availableOrders.isEmpty })
+
+        session.selectUnit(activeUnit.id)
+        XCTAssertFalse(session.issueOrderToSelectedUnit(.advance))
+        XCTAssertEqual(session.snapshot().phase, .movement)
+
+        let report = MontyOrderDiceCycle20Catalog.report()
+        XCTAssertTrue(report.compatibilityGates.allSatisfy(\.passed))
+        XCTAssertTrue(report.compatibilityGates.contains { $0.gate == .issueOrderAuditedAsNoOp && $0.blocksDefaultOrderDiceReadiness })
+        XCTAssertTrue(report.compatibilityGates.contains { $0.gate == .dzwOrdersAvailable && !$0.blocksDefaultOrderDiceReadiness })
+        XCTAssertTrue(report.compatibilityGates.contains { $0.gate == .sharedSurfaceAvailable && !$0.blocksDefaultOrderDiceReadiness })
+    }
+
+    func testOrderDiceCycle20ShimDecisionKeepsRulesOutOfMonty() {
+        let report = MontyOrderDiceCycle20Catalog.report()
+
+        XCTAssertEqual(Set(report.shimDecisions.map(\.component)), Set(MontyOrderDiceShimComponent.allCases))
+        XCTAssertTrue(report.shimDecisions.allSatisfy { !$0.rulesAuthorityRemainsDownstream })
+        XCTAssertTrue(report.shimDecisions.contains {
+            $0.component == .montyDemoBoardSession &&
+                $0.disposition == .keepAsThinCompatibilityAdapter
+        })
+        XCTAssertTrue(report.shimDecisions.contains {
+            $0.component == .historicalPlayableBattleView &&
+                $0.disposition == .consumeSharedDZWContract
+        })
+        XCTAssertTrue(report.shimDecisions.contains {
+            $0.component == .montyRunToDebriefControls &&
+                $0.disposition == .quarantineAsLegacyHelper
+        })
+    }
 }
