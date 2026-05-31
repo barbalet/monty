@@ -625,4 +625,97 @@ final class MontyCatalogTests: XCTestCase {
                 $0.disposition == .quarantineAsLegacyHelper
         })
     }
+
+    func testOrderDiceCycle40SideOwnershipMapsSelectedSideToHumanDrawnDice() throws {
+        let cases = try MontyOrderDiceCycle40Catalog.sideOwnershipCases()
+
+        XCTAssertEqual(cases.count, MontyBattleCatalog.demoBattleIDs.count * 4)
+        XCTAssertEqual(Set(cases.map(\.battleID)), Set(MontyBattleCatalog.demoBattleIDs))
+
+        for battleID in MontyBattleCatalog.demoBattleIDs {
+            for chosenSideID in [MontySideID.montgomery, MontySideID.opposition] {
+                let launchCases = cases.filter {
+                    $0.battleID == battleID && $0.selectedHumanSideID == chosenSideID
+                }
+                XCTAssertEqual(launchCases.count, 2, "\(battleID.rawValue) \(chosenSideID)")
+                XCTAssertEqual(launchCases.filter { $0.controller == .human }.map(\.sideID), [chosenSideID])
+                XCTAssertEqual(launchCases.filter(\.canHumanControlDrawnDie).map(\.sideID), [chosenSideID])
+                XCTAssertTrue(launchCases.allSatisfy { $0.orderDiceCount > 0 })
+                XCTAssertEqual(Set(launchCases.map(\.enginePlayerSlot)), [.playerOne, .playerTwo])
+            }
+        }
+
+        let secondAlameinMontgomery = try XCTUnwrap(cases.first {
+            $0.battleID == .secondElAlamein &&
+                $0.selectedHumanSideID == MontySideID.montgomery &&
+                $0.sideID == MontySideID.montgomery
+        })
+        XCTAssertEqual(secondAlameinMontgomery.orderDiceCount, 3)
+    }
+
+    func testOrderDiceCycle40ForceProfilesAssignQualityWeaponsVehiclesPinsAndOrders() {
+        let profiles = MontyOrderDiceCycle40Catalog.forceProfiles()
+
+        XCTAssertEqual(profiles.count, MontyDemoDataPackCatalog.all.map(\.forceGroups.count).reduce(0, +))
+        XCTAssertTrue(profiles.allSatisfy { !$0.weaponClasses.isEmpty })
+        XCTAssertTrue(profiles.allSatisfy { !$0.recommendedOrders.isEmpty })
+
+        let engineers = profiles.first { $0.forceGroupID == "alamein-engineers" }
+        XCTAssertEqual(engineers?.pinBehavior, .rallyPriority)
+        XCTAssertEqual(engineers?.officerModifier, 1)
+        XCTAssertTrue(engineers?.weaponClasses.contains(.engineers) == true)
+        XCTAssertTrue(engineers?.recommendedOrders.contains(.rally) == true)
+
+        let antiTankScreen = profiles.first { $0.forceGroupID == "alam-anti-tank-screen" }
+        XCTAssertEqual(antiTankScreen?.quality, .veteran)
+        XCTAssertEqual(antiTankScreen?.vehicleClass, .artillery)
+        XCTAssertTrue(antiTankScreen?.weaponClasses.contains(.antiTank) == true)
+        XCTAssertTrue(antiTankScreen?.recommendedOrders.contains(.ambush) == true)
+
+        let ssPanzer = profiles.first { $0.forceGroupID == "epsom-ss-panzer" }
+        XCTAssertEqual(ssPanzer?.quality, .veteran)
+        XCTAssertEqual(ssPanzer?.vehicleClass, .tank)
+        XCTAssertEqual(ssPanzer?.pinBehavior, .counterattackRisk)
+        XCTAssertTrue(ssPanzer?.recommendedOrders.contains(.run) == true)
+    }
+
+    func testOrderDiceCycle40TerrainProfilesClassifyRoadsCoverObstaclesAndMinefields() {
+        let terrain = MontyOrderDiceCycle40Catalog.terrainProfiles()
+
+        XCTAssertEqual(terrain.count, MontyDemoDataPackCatalog.all.map(\.scenario.map.elements.count).reduce(0, +))
+        XCTAssertTrue(terrain.allSatisfy { !$0.classes.isEmpty })
+        XCTAssertTrue(terrain.filter { $0.elementKind == .road }.allSatisfy(\.allowsRoadBonus))
+        XCTAssertTrue(terrain.filter { $0.elementKind == .minefield }.allSatisfy { $0.blocksRun && $0.classes.contains(.minefield) })
+        XCTAssertTrue(terrain.filter { $0.elementKind == .river }.allSatisfy { $0.blocksRun && $0.classes.contains(.impassable) })
+        XCTAssertTrue(terrain.filter { $0.elementKind == .ridge }.allSatisfy { $0.blocksLineOfSight && $0.coverClass == .hardCover })
+
+        XCTAssertTrue(terrain.contains { $0.battleID == .operationEpsom && $0.elementID == "epsom-odon-crossing" && $0.allowsRoadBonus })
+        XCTAssertTrue(terrain.contains { $0.battleID == .secondElAlamein && $0.elementID == "alamein-devils-gardens" && $0.classes.contains(.minefield) })
+    }
+
+    func testOrderDiceCycle40PacingProfilesUseActivationBudgetsInsteadOfPhaseCounts() throws {
+        let report = try MontyOrderDiceCycle40Catalog.report()
+
+        XCTAssertTrue(report.isReadyThroughCycle40)
+        XCTAssertTrue(MontyOrderDiceCycle40Catalog.isReadyThroughOrderDiceCycle40)
+        XCTAssertEqual(report.cycleStart, 21)
+        XCTAssertEqual(report.cycleEnd, 40)
+        XCTAssertEqual(report.cyclesRemaining, 160)
+        XCTAssertEqual(report.documentationPath, "docs/monty_order_dice_cycle_021_040.md")
+        XCTAssertEqual(report.pacingProfiles.count, MontyBattleCatalog.demoBattleIDs.count)
+        XCTAssertTrue(report.pacingProfiles.allSatisfy(\.debriefRequiresActivationCount))
+        XCTAssertTrue(report.pacingProfiles.allSatisfy(\.phaseCountScoringDeprecated))
+
+        let alam = try XCTUnwrap(report.pacingProfiles.first { $0.battleID == .alamElHalfa })
+        XCTAssertEqual(alam.orderDicePerTurn, 4)
+        XCTAssertEqual(alam.targetActivationBudget, 32)
+        XCTAssertGreaterThanOrEqual(alam.activationSafetyCap, alam.targetActivationBudget)
+        XCTAssertEqual(alam.objectiveVictoryPointsBySide[MontySideID.montgomery], 10)
+        XCTAssertEqual(alam.objectiveVictoryPointsBySide[MontySideID.opposition], 5)
+
+        let secondAlamein = try XCTUnwrap(report.pacingProfiles.first { $0.battleID == .secondElAlamein })
+        XCTAssertEqual(secondAlamein.orderDicePerTurn, 5)
+        XCTAssertEqual(secondAlamein.targetActivationBudget, 50)
+        XCTAssertEqual(secondAlamein.objectiveVictoryPointsBySide[MontySideID.montgomery], 12)
+    }
 }

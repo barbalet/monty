@@ -79,6 +79,7 @@ Monty work should not define alternate order rules. If a needed rule is missing,
 ## Order-Dice Migration Cycle Progress
 
 - **Cycles 1-20 complete:** Added the Monty order-dice dependency audit, DZW/Guderian contract comparison, compatibility diagnostics, and shim decisions in `MontyOrderDiceCycle20Catalog`. Documentation lives in `docs/monty_order_dice_cycle_001_020.md`, and tests now prove that Monty's current default demo path is still phase-driven, that `MontyDemoBoardSession` does not yet implement explicit order assignment, and that those blockers are tracked before cycles 21-45 add side/order ownership and order-dice launch data. DZW remains the rules authority; no Monty-only order rules were introduced.
+- **Cycles 21-40 complete:** Added Monty's order-dice side ownership, force quality, weapon/vehicle/pin input, terrain classification, and activation-aware scoring/pacing catalogs in `MontyOrderDiceCycle40Catalog`. Documentation lives in `docs/monty_order_dice_cycle_021_040.md`; launch flow has not yet been changed to store the new ruleset/order-cup state because that is the next cycle band, cycles 41-45.
 
 ## Current Reality Check
 
