@@ -20,6 +20,12 @@ public enum MontyAccessibilityID {
     public static let battleMoveButton = "battle-move-button"
     public static let battleShootButton = "battle-shoot-button"
     public static let battleAssaultButton = "battle-assault-button"
+    public static let battleOrderFireButton = "battle-order-fire-button"
+    public static let battleOrderAdvanceButton = "battle-order-advance-button"
+    public static let battleOrderRunButton = "battle-order-run-button"
+    public static let battleOrderAmbushButton = "battle-order-ambush-button"
+    public static let battleOrderRallyButton = "battle-order-rally-button"
+    public static let battleOrderDownButton = "battle-order-down-button"
     public static let battleResolvePendingButton = "battle-resolve-pending-button"
     public static let battleRestartButton = "battle-restart-button"
     public static let battleRunToDebriefButton = "battle-run-to-debrief-button"
@@ -113,6 +119,12 @@ public enum MontyAccessibilityCatalog {
         MontyAccessibilityID.battleMoveButton,
         MontyAccessibilityID.battleShootButton,
         MontyAccessibilityID.battleAssaultButton,
+        MontyAccessibilityID.battleOrderFireButton,
+        MontyAccessibilityID.battleOrderAdvanceButton,
+        MontyAccessibilityID.battleOrderRunButton,
+        MontyAccessibilityID.battleOrderAmbushButton,
+        MontyAccessibilityID.battleOrderRallyButton,
+        MontyAccessibilityID.battleOrderDownButton,
         MontyAccessibilityID.battleResolvePendingButton,
         MontyAccessibilityID.battleRestartButton,
         MontyAccessibilityID.battleRunToDebriefButton,

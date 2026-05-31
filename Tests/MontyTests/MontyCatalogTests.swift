@@ -585,7 +585,7 @@ final class MontyCatalogTests: XCTestCase {
         XCTAssertTrue(report.defaultReadinessBlockers.contains { $0.contains("issueOrder") })
     }
 
-    func testOrderDiceCycle20CompatibilityGateMatchesCurrentMontySession() throws {
+    func testOrderDiceCycle20CompatibilityGateRecordsOriginalSessionGap() throws {
         let session = try MontyDemoBoardSession(
             battleID: .alamElHalfa,
             chosenSideID: MontySideID.montgomery
@@ -594,10 +594,9 @@ final class MontyCatalogTests: XCTestCase {
         let activeUnit = try XCTUnwrap(opening.units.first { $0.sideID == opening.activeSideID })
 
         XCTAssertEqual(opening.phase, .movement)
-        XCTAssertTrue(opening.units.allSatisfy { $0.availableOrders.isEmpty })
 
         session.selectUnit(activeUnit.id)
-        XCTAssertFalse(session.issueOrderToSelectedUnit(.advance))
+        XCTAssertTrue(session.issueOrderToSelectedUnit(.advance))
         XCTAssertEqual(session.snapshot().phase, .movement)
 
         let report = MontyOrderDiceCycle20Catalog.report()
@@ -605,6 +604,7 @@ final class MontyCatalogTests: XCTestCase {
         XCTAssertTrue(report.compatibilityGates.contains { $0.gate == .issueOrderAuditedAsNoOp && $0.blocksDefaultOrderDiceReadiness })
         XCTAssertTrue(report.compatibilityGates.contains { $0.gate == .dzwOrdersAvailable && !$0.blocksDefaultOrderDiceReadiness })
         XCTAssertTrue(report.compatibilityGates.contains { $0.gate == .sharedSurfaceAvailable && !$0.blocksDefaultOrderDiceReadiness })
+        XCTAssertTrue(MontyOrderDiceCycle60Catalog.sessionAdapterContract.implementsIssueOrder)
     }
 
     func testOrderDiceCycle20ShimDecisionKeepsRulesOutOfMonty() {
@@ -717,5 +717,74 @@ final class MontyCatalogTests: XCTestCase {
         XCTAssertEqual(secondAlamein.orderDicePerTurn, 5)
         XCTAssertEqual(secondAlamein.targetActivationBudget, 50)
         XCTAssertEqual(secondAlamein.objectiveVictoryPointsBySide[MontySideID.montgomery], 12)
+    }
+
+    func testOrderDiceCycle60LaunchFlowCarriesOrderDiceState() throws {
+        let flow = try MontyLaunchFlowResolver.makeLaunchFlow(
+            battleID: .secondElAlamein,
+            chosenSideID: MontySideID.opposition
+        )
+        let state = flow.orderDiceLaunchState
+
+        XCTAssertTrue(state.isReadyForOrderDiceLaunchFlow)
+        XCTAssertEqual(state.battleID, .secondElAlamein)
+        XCTAssertEqual(state.selectedHumanSideID, MontySideID.opposition)
+        XCTAssertEqual(state.seed, flow.launch.seed)
+        XCTAssertEqual(state.orderCup.count, flow.dataPack.forceGroups.count)
+        XCTAssertEqual(state.orderCup.filter(\.humanControlledWhenDrawn).count, 2)
+        XCTAssertEqual(state.sideOwnership.filter { $0.canHumanControlDrawnDie }.map(\.sideID), [MontySideID.opposition])
+        XCTAssertTrue(flow.isReadyForSharedBattleSurface)
+    }
+
+    func testOrderDiceCycle60SessionIssuesOrdersAndExposesOrderSnapshots() throws {
+        let session = try MontyDemoBoardSession(
+            battleID: .alamElHalfa,
+            chosenSideID: MontySideID.montgomery
+        )
+        let opening = session.snapshot()
+        let activeUnits = opening.units.filter { $0.sideID == opening.activeSideID }.sorted { $0.id < $1.id }
+        let firstUnit = try XCTUnwrap(activeUnits.first)
+        let secondUnit = try XCTUnwrap(activeUnits.dropFirst().first)
+
+        XCTAssertEqual(firstUnit.availableOrders, HistoricalBoardOrder.allCases)
+
+        session.selectUnit(firstUnit.id)
+        XCTAssertTrue(session.issueOrderToSelectedUnit(.advance))
+        var afterAdvance = try XCTUnwrap(session.snapshot().units.first { $0.id == firstUnit.id })
+        XCTAssertEqual(afterAdvance.currentOrder, .advance)
+        XCTAssertTrue(afterAdvance.availableOrders.isEmpty)
+        XCTAssertTrue(afterAdvance.canMoveNow)
+        XCTAssertTrue(afterAdvance.canShootNow)
+        XCTAssertTrue(afterAdvance.orderDiceSummary.contains("Advance"))
+
+        session.selectUnit(secondUnit.id)
+        XCTAssertTrue(session.issueOrderToSelectedUnit(.down))
+        let afterDown = try XCTUnwrap(session.snapshot().units.first { $0.id == secondUnit.id })
+        XCTAssertEqual(afterDown.currentOrder, .down)
+        XCTAssertTrue(afterDown.retainedOrder)
+        XCTAssertTrue(afterDown.downOrderActive)
+        XCTAssertFalse(afterDown.ambushOrderActive)
+
+        session.selectUnit(firstUnit.id)
+        XCTAssertFalse(session.issueOrderToSelectedUnit(.run))
+        afterAdvance = try XCTUnwrap(session.snapshot().units.first { $0.id == firstUnit.id })
+        XCTAssertEqual(afterAdvance.currentOrder, .advance)
+    }
+
+    func testOrderDiceCycle60SharedSurfaceSessionAndControlsReportIsReady() throws {
+        let report = try MontyOrderDiceCycle60Catalog.report()
+
+        XCTAssertTrue(report.isReadyThroughCycle60)
+        XCTAssertTrue(MontyOrderDiceCycle60Catalog.isReadyThroughOrderDiceCycle60)
+        XCTAssertEqual(report.cycleStart, 41)
+        XCTAssertEqual(report.cycleEnd, 60)
+        XCTAssertEqual(report.cyclesRemaining, 140)
+        XCTAssertEqual(report.documentationPath, "docs/monty_order_dice_cycle_041_060.md")
+        XCTAssertTrue(report.launchStates.allSatisfy(\.isReadyForOrderDiceLaunchFlow))
+        XCTAssertTrue(report.sharedUIContract.requiredOrderIdentifiers.contains(MontyAccessibilityID.battleOrderFireButton))
+        XCTAssertTrue(report.sharedUIContract.requiredOrderIdentifiers.contains(MontyAccessibilityID.battleOrderDownButton))
+        XCTAssertTrue(report.sessionAdapterContract.isReadyForCycle55)
+        XCTAssertTrue(report.controlContract.isReadyForCycle60)
+        XCTAssertTrue(MontyAccessibilityCatalog.sharedPlayableSurfaceIdentifiers.contains(MontyAccessibilityID.battleOrderRunButton))
     }
 }

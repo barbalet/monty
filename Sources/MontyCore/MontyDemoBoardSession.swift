@@ -5,6 +5,7 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
 
     private struct UnitState: Hashable {
         let id: Int
+        let forceGroupID: String
         let sideID: String
         let name: String
         let role: String
@@ -27,6 +28,7 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
     private var selectedTargetID: Int?
     private var pendingChoices = 0
     private var unitStates: [Int: UnitState]
+    private var assignedOrders: [Int: HistoricalBoardOrder] = [:]
     private var lastAction = HistoricalBoardActionMessage(
         status: .idle,
         title: "Ready",
@@ -51,6 +53,7 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
             sideSlotCounts[forceGroup.sideID] = slot + 1
             let state = UnitState(
                 id: nextID,
+                forceGroupID: forceGroup.id,
                 sideID: forceGroup.sideID,
                 name: forceGroup.name,
                 role: forceGroup.role,
@@ -191,11 +194,7 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
     }
 
     public func moveUnit(_ id: Int, to point: HistoricalBattleCoordinate) -> Bool {
-        guard phase == .movement else {
-            recordAction(status: .blocked, title: "Move", detail: "Movement is only legal in the movement phase.")
-            return false
-        }
-        guard var unit = unitStates[id], unit.sideID == activeSideID, !unit.destroyed else {
+        guard var unit = unitStates[id], unitCanMove(unit) else {
             recordAction(status: .blocked, title: "Move", detail: "Unit \(id) cannot move right now.")
             return false
         }
@@ -249,11 +248,7 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
     }
 
     public func shootUnit(_ attackerID: Int, targetID: Int) -> Bool {
-        guard phase == .shooting else {
-            recordAction(status: .blocked, title: "Shoot", detail: "Shooting is only legal in the shooting phase.")
-            return false
-        }
-        guard let attacker = unitStates[attackerID], attacker.sideID == activeSideID, !attacker.destroyed else {
+        guard let attacker = unitStates[attackerID], unitCanShoot(attacker) else {
             recordAction(status: .blocked, title: "Shoot", detail: "Attacker \(attackerID) cannot shoot right now.")
             return false
         }
@@ -270,11 +265,7 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
     }
 
     public func assaultUnit(_ attackerID: Int, targetID: Int, advance: Bool) -> Bool {
-        guard phase == .assault else {
-            recordAction(status: .blocked, title: "Assault", detail: "Assault is only legal in the assault phase.")
-            return false
-        }
-        guard var attacker = unitStates[attackerID], attacker.sideID == activeSideID, !attacker.destroyed else {
+        guard var attacker = unitStates[attackerID], unitCanAssault(attacker) else {
             recordAction(status: .blocked, title: "Assault", detail: "Attacker \(attackerID) cannot assault right now.")
             return false
         }
@@ -300,6 +291,26 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
             return false
         }
         return shootUnit(selectedUnitID, targetID: selectedTargetID)
+    }
+
+    public func issueOrder(_ order: HistoricalBoardOrder, to unitID: Int) -> Bool {
+        guard let unit = unitStates[unitID], availableOrders(for: unit).contains(order) else {
+            recordAction(status: .blocked, title: "Order", detail: "Unit \(unitID) cannot receive \(order.rawValue) right now.")
+            return false
+        }
+
+        selectedUnitID = unitID
+        assignedOrders[unitID] = order
+        recordAction(status: .succeeded, title: "Order", detail: "\(unit.name) received \(order.rawValue).")
+        return true
+    }
+
+    public func issueOrderToSelectedUnit(_ order: HistoricalBoardOrder) -> Bool {
+        guard let selectedUnitID else {
+            recordAction(status: .blocked, title: "Order", detail: "Select a unit before issuing \(order.rawValue).")
+            return false
+        }
+        return issueOrder(order, to: selectedUnitID)
     }
 
     public func resolveFirstPendingChoice() -> Bool {
@@ -338,6 +349,47 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
         launch.aiSideID ?? sideOrder.first { $0 != launch.chosenHumanSideID } ?? MontySideID.opposition
     }
 
+    private func currentOrder(for unit: UnitState) -> HistoricalBoardOrder? {
+        assignedOrders[unit.id]
+    }
+
+    private func availableOrders(for unit: UnitState) -> [HistoricalBoardOrder] {
+        guard unit.sideID == activeSideID, !unit.destroyed, assignedOrders[unit.id] == nil else {
+            return []
+        }
+        return HistoricalBoardOrder.allCases
+    }
+
+    private func unitCanMove(_ unit: UnitState) -> Bool {
+        guard unit.sideID == activeSideID, !unit.destroyed else {
+            return false
+        }
+        if phase == .movement {
+            return true
+        }
+        return currentOrder(for: unit).map { $0 == .advance || $0 == .run } ?? false
+    }
+
+    private func unitCanShoot(_ unit: UnitState) -> Bool {
+        guard unit.sideID == activeSideID, !unit.destroyed else {
+            return false
+        }
+        if phase == .shooting {
+            return true
+        }
+        return currentOrder(for: unit).map { $0 == .fire || $0 == .advance } ?? false
+    }
+
+    private func unitCanAssault(_ unit: UnitState) -> Bool {
+        guard unit.sideID == activeSideID, !unit.destroyed else {
+            return false
+        }
+        if phase == .assault {
+            return true
+        }
+        return currentOrder(for: unit) == .run
+    }
+
     private func score(for sideID: String) -> Int {
         let targetScore = dataPack.scenario.victory.targetScore
         guard let winningSideID else {
@@ -356,7 +408,9 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
         unitStates.values
             .sorted { $0.id < $1.id }
             .map { unit in
-                HistoricalBoardUnitSnapshot(
+                let profile = forceProfile(for: unit)
+                let order = currentOrder(for: unit)
+                return HistoricalBoardUnitSnapshot(
                     id: unit.id,
                     sideID: unit.sideID,
                     name: unit.name,
@@ -365,13 +419,27 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
                     position: unit.position,
                     facingDegrees: unit.facingDegrees,
                     destroyed: unit.destroyed,
-                    canMoveNow: unit.sideID == activeSideID && phase == .movement && !unit.destroyed,
-                    canShootNow: unit.sideID == activeSideID && phase == .shooting && !unit.destroyed,
-                    canAssaultNow: unit.sideID == activeSideID && phase == .assault && !unit.destroyed,
+                    canMoveNow: unitCanMove(unit),
+                    canShootNow: unitCanShoot(unit),
+                    canAssaultNow: unitCanAssault(unit),
                     selected: unit.id == selectedUnitID,
-                    targeted: unit.id == selectedTargetID
+                    targeted: unit.id == selectedTargetID,
+                    currentOrder: order,
+                    availableOrders: availableOrders(for: unit),
+                    orderDiceSummary: order.map { "\($0.rawValue) assigned from staged order-dice controls." } ?? "Ready for order die.",
+                    pinCount: 0,
+                    moraleQuality: profile?.quality.rawValue ?? "Regular",
+                    retainedOrder: order == .ambush || order == .down,
+                    downOrderActive: order == .down,
+                    ambushOrderActive: order == .ambush
                 )
             }
+    }
+
+    private func forceProfile(for unit: UnitState) -> MontyOrderDiceForceProfile? {
+        MontyOrderDiceCycle40Catalog.forceProfiles().first {
+            $0.battleID == battleID && $0.forceGroupID == unit.forceGroupID
+        }
     }
 
     private func zoneSnapshots() -> [HistoricalBoardZoneSnapshot] {
@@ -435,6 +503,7 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
 
     private func advanceSideAfterAssault() {
         phase = .movement
+        assignedOrders.removeAll()
         if activeSideID == sideOrder.last {
             activeSideID = sideOrder[0]
             turnNumber += 1

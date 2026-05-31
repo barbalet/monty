@@ -92,6 +92,7 @@ public struct MontyLaunchFlow: Codable, Hashable, Sendable {
     public let chosenSideID: String
     public let launch: HistoricalBattleLaunch<MontyBattleID>
     public let autoplayConfiguration: HistoricalAutoplayConfiguration<MontyBattleID>
+    public let orderDiceLaunchState: MontyOrderDiceLaunchState
     public let stages: [MontyLaunchFlowStage]
     public let requiredAccessibilityIdentifiers: [String]
 
@@ -101,6 +102,7 @@ public struct MontyLaunchFlow: Codable, Hashable, Sendable {
         chosenSideID: String,
         launch: HistoricalBattleLaunch<MontyBattleID>,
         autoplayConfiguration: HistoricalAutoplayConfiguration<MontyBattleID>,
+        orderDiceLaunchState: MontyOrderDiceLaunchState? = nil,
         stages: [MontyLaunchFlowStage] = MontyLaunchFlowStage.allCases,
         requiredAccessibilityIdentifiers: [String]
     ) {
@@ -109,6 +111,11 @@ public struct MontyLaunchFlow: Codable, Hashable, Sendable {
         self.chosenSideID = chosenSideID
         self.launch = launch
         self.autoplayConfiguration = autoplayConfiguration
+        self.orderDiceLaunchState = orderDiceLaunchState ?? MontyOrderDiceLaunchStateBuilder.make(
+            scenario: scenario,
+            dataPack: dataPack,
+            launch: launch
+        )
         self.stages = stages
         self.requiredAccessibilityIdentifiers = requiredAccessibilityIdentifiers
     }
@@ -134,6 +141,7 @@ public struct MontyLaunchFlow: Codable, Hashable, Sendable {
             stages == MontyLaunchFlowStage.allCases &&
             launch.humanSideID == chosenSideID &&
             autoplayConfiguration.battleID == scenario.id &&
+            orderDiceLaunchState.isReadyForOrderDiceLaunchFlow &&
             autoplayConfiguration.contract.embeddedBattleSurfaceName == sharedBattleSurfaceName
     }
 

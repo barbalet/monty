@@ -182,6 +182,7 @@ private struct MontyBattleDetailView: View {
                     onMove: moveSelectedUnit,
                     onShoot: shootSelectedTarget,
                     onAssault: assaultSelectedTarget,
+                    onIssueOrder: issueOrder,
                     onResolvePending: resolvePendingChoice,
                     onNextPhase: advancePhase,
                     onAITurn: runAutomatedPhase,
@@ -379,6 +380,11 @@ private struct MontyBattleDetailView: View {
         refreshSnapshot()
     }
 
+    private func issueOrder(_ order: HistoricalBoardOrder) {
+        _ = battleSession?.issueOrderToSelectedUnit(order)
+        refreshSnapshot()
+    }
+
     private func resolvePendingChoice() {
         _ = battleSession?.resolveFirstPendingChoice()
         refreshSnapshot()
@@ -466,6 +472,7 @@ private struct MontyPlayableBattleSurfaceView: View {
     let onMove: () -> Void
     let onShoot: () -> Void
     let onAssault: () -> Void
+    let onIssueOrder: (HistoricalBoardOrder) -> Void
     let onResolvePending: () -> Void
     let onNextPhase: () -> Void
     let onAITurn: () -> Void
@@ -493,6 +500,7 @@ private struct MontyPlayableBattleSurfaceView: View {
             onMove: onMove,
             onShoot: onShoot,
             onAssault: onAssault,
+            onIssueOrder: onIssueOrder,
             onResolvePending: onResolvePending,
             onNextPhase: onNextPhase,
             onAITurn: onAITurn,

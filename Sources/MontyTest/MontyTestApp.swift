@@ -114,6 +114,7 @@ private struct MontyTestFirstBattleAutoplayView: View {
                 onMove: model.moveSelectedUnit,
                 onShoot: model.shootSelectedTarget,
                 onAssault: model.assaultSelectedTarget,
+                onIssueOrder: model.issueOrder,
                 onResolvePending: model.resolvePendingChoice,
                 onNextPhase: model.advancePhase,
                 onAITurn: model.step,
@@ -384,6 +385,11 @@ private final class MontyTestViewModel: ObservableObject {
         }
 
         _ = session.assaultUnit(attacker.id, targetID: target.id, advance: true)
+        refreshFromSession()
+    }
+
+    func issueOrder(_ order: HistoricalBoardOrder) {
+        _ = controller?.session.issueOrderToSelectedUnit(order)
         refreshFromSession()
     }
 
