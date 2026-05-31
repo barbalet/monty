@@ -294,8 +294,13 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
     }
 
     public func issueOrder(_ order: HistoricalBoardOrder, to unitID: Int) -> Bool {
-        guard let unit = unitStates[unitID], availableOrders(for: unit).contains(order) else {
-            recordAction(status: .blocked, title: "Order", detail: "Unit \(unitID) cannot receive \(order.rawValue) right now.")
+        if let blocker = orderBlocker(for: unitID, order: order) {
+            recordAction(status: .blocked, title: "Order blocked", detail: blocker)
+            return false
+        }
+
+        guard let unit = unitStates[unitID] else {
+            recordAction(status: .blocked, title: "Order blocked", detail: "No unit exists with id \(unitID).")
             return false
         }
 
@@ -311,6 +316,15 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
             return false
         }
         return issueOrder(order, to: selectedUnitID)
+    }
+
+    public func orderEligibilityDetail(for unitID: Int, order: HistoricalBoardOrder) -> String {
+        if let blocker = orderBlocker(for: unitID, order: order) {
+            return blocker
+        }
+
+        let unitName = unitStates[unitID]?.name ?? "Unit \(unitID)"
+        return "\(unitName) can receive \(order.rawValue) while the \(activeSideID) order die is drawn."
     }
 
     public func resolveFirstPendingChoice() -> Bool {
@@ -358,6 +372,30 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
             return []
         }
         return HistoricalBoardOrder.allCases
+    }
+
+    private func orderBlocker(for unitID: Int, order: HistoricalBoardOrder) -> String? {
+        guard let unit = unitStates[unitID] else {
+            return "No unit exists with id \(unitID)."
+        }
+
+        if unit.destroyed {
+            return "\(unit.name) is destroyed and cannot receive \(order.rawValue)."
+        }
+
+        if unit.sideID != activeSideID {
+            return "\(unit.name) belongs to \(unit.sideID), but the drawn order die is for \(activeSideID)."
+        }
+
+        if let assignedOrder = assignedOrders[unit.id] {
+            return "\(unit.name) already has \(assignedOrder.rawValue); assigned and retained orders wait for turn-end cleanup before another order can be issued."
+        }
+
+        if !availableOrders(for: unit).contains(order) {
+            return "\(unit.name) is not eligible for \(order.rawValue) under the current order-dice state."
+        }
+
+        return nil
     }
 
     private func unitCanMove(_ unit: UnitState) -> Bool {
@@ -426,7 +464,7 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
                     targeted: unit.id == selectedTargetID,
                     currentOrder: order,
                     availableOrders: availableOrders(for: unit),
-                    orderDiceSummary: order.map { "\($0.rawValue) assigned from staged order-dice controls." } ?? "Ready for order die.",
+                    orderDiceSummary: orderDiceSummary(for: unit, profile: profile, order: order),
                     pinCount: 0,
                     moraleQuality: profile?.quality.rawValue ?? "Regular",
                     retainedOrder: order == .ambush || order == .down,
@@ -434,6 +472,20 @@ public final class MontyDemoBoardSession: HistoricalBoardSession {
                     ambushOrderActive: order == .ambush
                 )
             }
+    }
+
+    private func orderDiceSummary(
+        for unit: UnitState,
+        profile: MontyOrderDiceForceProfile?,
+        order: HistoricalBoardOrder?
+    ) -> String {
+        let quality = profile?.quality.rawValue ?? "Regular"
+        let orderText = order?.rawValue ?? "None"
+        let retainedText = order == .ambush || order == .down ? "retained" : "not retained"
+        let vehicleText = profile?.vehicleClass == .tank || profile?.vehicleClass == .transport
+            ? "vehicle damage none"
+            : "vehicle damage n/a"
+        return "Order \(orderText) | Quality \(quality) | Pins 0 | \(retainedText) | \(vehicleText) | \(unit.sideID) die"
     }
 
     private func forceProfile(for unit: UnitState) -> MontyOrderDiceForceProfile? {

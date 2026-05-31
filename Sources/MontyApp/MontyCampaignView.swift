@@ -402,32 +402,47 @@ private struct MontyBattleDetailView: View {
         }
 
         let snapshot = session.snapshot()
-        let plan = launchFlow.autoplayConfiguration.plan(for: snapshot.activeSideID)
-        let activeUnits = snapshot.units
-            .filter { $0.sideID == snapshot.activeSideID && !$0.destroyed }
-            .sorted { $0.id < $1.id }
-
-        for unit in activeUnits {
-            session.selectUnit(unit.id)
-            session.selectNearestEnemyToSelectedUnit()
-            switch snapshot.phase {
-            case .movement:
-                _ = session.moveSelectedUnitTowardPriorityObjective(
-                    named: plan.movementPriorityNames,
-                    maxDistance: plan.movementDistance
-                ) || session.moveSelectedUnitTowardNearestObjective(maxDistance: plan.movementDistance)
-            case .shooting:
-                _ = session.shootSelectedTarget()
-                _ = session.resolveFirstPendingChoice()
-            case .assault:
-                if let target = session.snapshot().units.first(where: { $0.targeted && !$0.destroyed }) {
-                    _ = session.assaultUnit(unit.id, targetID: target.id, advance: true)
-                    _ = session.resolveFirstPendingChoice()
-                }
-            }
+        guard let decision = MontyOrderDiceAIActivationAdvisor.decision(
+            flow: launchFlow,
+            snapshot: snapshot
+        ) else {
+            refreshSnapshot()
+            return
         }
 
-        session.advancePhase()
+        let plan = launchFlow.autoplayConfiguration.plan(for: snapshot.activeSideID)
+        session.selectUnit(decision.unitID)
+        if let targetID = decision.targetID {
+            session.selectTarget(targetID)
+        } else {
+            session.selectNearestEnemyToSelectedUnit()
+        }
+        _ = session.issueOrder(decision.order, to: decision.unitID)
+
+        switch decision.order {
+        case .fire:
+            _ = session.shootSelectedTarget()
+            _ = session.resolveFirstPendingChoice()
+        case .advance:
+            _ = session.moveSelectedUnitTowardPriorityObjective(
+                named: plan.movementPriorityNames,
+                maxDistance: plan.movementDistance
+            ) || session.moveSelectedUnitTowardNearestObjective(maxDistance: plan.movementDistance)
+            _ = session.shootSelectedTarget()
+            _ = session.resolveFirstPendingChoice()
+        case .run:
+            if let targetID = decision.targetID {
+                _ = session.assaultUnit(decision.unitID, targetID: targetID, advance: true)
+                _ = session.resolveFirstPendingChoice()
+            } else {
+                _ = session.moveSelectedUnitTowardPriorityObjective(
+                    named: plan.movementPriorityNames,
+                    maxDistance: plan.movementDistance * 2
+                ) || session.moveSelectedUnitTowardNearestObjective(maxDistance: plan.movementDistance * 2)
+            }
+        case .ambush, .rally, .down:
+            break
+        }
         refreshSnapshot()
     }
 

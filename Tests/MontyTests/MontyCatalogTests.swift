@@ -787,4 +787,80 @@ final class MontyCatalogTests: XCTestCase {
         XCTAssertTrue(report.controlContract.isReadyForCycle60)
         XCTAssertTrue(MontyAccessibilityCatalog.sharedPlayableSurfaceIdentifiers.contains(MontyAccessibilityID.battleOrderRunButton))
     }
+
+    func testOrderDiceCycle80SidebarDetailsExposeOrderMoralePinsAndVehicleState() throws {
+        let details = try MontyOrderDiceCycle80Catalog.sidebarDetails()
+        let expectedCount = MontyDemoDataPackCatalog.all.map(\.forceGroups.count).reduce(0, +) * 2
+
+        XCTAssertEqual(details.count, expectedCount)
+        XCTAssertTrue(details.allSatisfy(\.isReadyForCycle65Sidebar))
+        XCTAssertTrue(details.contains { $0.moraleQuality == MontyOrderDiceMoraleQuality.veteran.rawValue })
+        XCTAssertTrue(details.contains { $0.orderState == "Awaiting drawn die" })
+        XCTAssertTrue(details.contains { $0.vehicleDamageSummary.contains("Vehicle damage") })
+        XCTAssertTrue(details.allSatisfy { $0.orderTestSummary.contains("order test") })
+        XCTAssertTrue(details.allSatisfy { $0.moraleDebriefSummary.contains("Order") })
+    }
+
+    func testOrderDiceCycle80HumanInteractionPreviewsUseDrawnSideLegalOrdersAndTargets() throws {
+        let previews = try MontyOrderDiceCycle80Catalog.interactionPreviews()
+
+        XCTAssertEqual(previews.count, MontyDemoDataPackCatalog.all.count * 2)
+        XCTAssertTrue(previews.allSatisfy(\.isReadyForCycle70Interaction))
+        XCTAssertTrue(previews.allSatisfy { $0.selectedHumanSideID == $0.drawnSideID })
+        XCTAssertTrue(previews.allSatisfy { Set($0.legalOrders) == Set(HistoricalBoardOrder.allCases) })
+        XCTAssertTrue(previews.allSatisfy { !$0.legalTargetIDs.contains($0.selectedUnitID) })
+        XCTAssertTrue(previews.allSatisfy { $0.executeSummary.contains("wait for the next die") })
+    }
+
+    func testOrderDiceCycle80BlockedReasonsAreOrderSpecific() throws {
+        let session = try MontyDemoBoardSession(
+            battleID: .secondElAlamein,
+            chosenSideID: MontySideID.montgomery
+        )
+        let opening = session.snapshot()
+        let activeUnit = try XCTUnwrap(opening.units.first { $0.sideID == opening.activeSideID })
+        let enemyUnit = try XCTUnwrap(opening.units.first { $0.sideID != opening.activeSideID })
+
+        session.selectUnit(enemyUnit.id)
+        XCTAssertFalse(session.issueOrderToSelectedUnit(.advance))
+        XCTAssertTrue(session.snapshot().lastAction.detail.contains("drawn order die"))
+
+        session.selectUnit(activeUnit.id)
+        XCTAssertTrue(session.issueOrderToSelectedUnit(.down))
+        XCTAssertFalse(session.issueOrderToSelectedUnit(.fire))
+        XCTAssertTrue(session.snapshot().lastAction.detail.contains("already has Down"))
+        XCTAssertTrue(session.orderEligibilityDetail(for: enemyUnit.id, order: .advance).contains("drawn order die"))
+
+        XCTAssertEqual(
+            Set(MontyOrderDiceCycle80Catalog.blockedReasons),
+            Set(MontyOrderDiceInteractionBlocker.allCases)
+        )
+        XCTAssertTrue(MontyOrderDiceCycle80Catalog.blockedReasons.allSatisfy { !$0.explanation.isEmpty })
+    }
+
+    func testOrderDiceCycle80AIActivationDecisionsCoverEveryDemoBattleAndSide() throws {
+        let decisions = try MontyOrderDiceCycle80Catalog.aiActivationDecisions()
+
+        XCTAssertEqual(decisions.count, MontyDemoDataPackCatalog.all.count * 2)
+        XCTAssertTrue(decisions.allSatisfy(\.isReadyForCycle80AI))
+        XCTAssertEqual(Set(decisions.map(\.drawnSideID)), Set([MontySideID.montgomery, MontySideID.opposition]))
+        XCTAssertTrue(decisions.allSatisfy(\.usesSharedDZWOrderAdvisor))
+        XCTAssertTrue(decisions.allSatisfy(\.replacesFullPhaseScript))
+        XCTAssertTrue(decisions.allSatisfy { $0.actionIntent.contains("wait for the next die") || $0.order == .ambush })
+        XCTAssertTrue(decisions.contains { $0.order == .advance })
+    }
+
+    func testOrderDiceCycle80ReportIsReady() throws {
+        let report = try MontyOrderDiceCycle80Catalog.report()
+
+        XCTAssertTrue(report.isReadyThroughCycle80)
+        XCTAssertTrue(MontyOrderDiceCycle80Catalog.isReadyThroughOrderDiceCycle80)
+        XCTAssertEqual(report.cycleStart, 61)
+        XCTAssertEqual(report.cycleEnd, 80)
+        XCTAssertEqual(report.cyclesRemaining, 120)
+        XCTAssertEqual(report.documentationPath, "docs/monty_order_dice_cycle_061_080.md")
+        XCTAssertTrue(report.sidebarDetails.allSatisfy(\.isReadyForCycle65Sidebar))
+        XCTAssertTrue(report.interactionPreviews.allSatisfy(\.isReadyForCycle70Interaction))
+        XCTAssertTrue(report.aiActivationDecisions.allSatisfy(\.isReadyForCycle80AI))
+    }
 }
